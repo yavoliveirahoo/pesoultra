@@ -1,17 +1,9 @@
-// Service worker: guarda a página para abrir offline.
-// Só atualiza o cache quando o servidor responde OK (evita guardar páginas de erro 404).
-const CACHE = 'peso-ultra-v2';
+// Service worker mínimo: guarda a página para abrir offline.
+const CACHE = 'peso-ultra-v1';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request)
-      .then(r => {
-        if (r && r.ok) { const c = r.clone(); caches.open(CACHE).then(x => x.put(e.request, c)); return r; }
-        return caches.match(e.request).then(m => m || r);
-      })
-      .catch(() => caches.match(e.request))
-  );
+  e.respondWith(fetch(e.request).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put(e.request, c)); return r; }).catch(() => caches.match(e.request)));
 });
