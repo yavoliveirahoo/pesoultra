@@ -147,6 +147,20 @@ body.pen .pen-hint{display:block}
 .lockbox svg{width:44px;height:44px;color:var(--gold);margin-bottom:10px}
 .cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cmp .lab{font-size:12.5px;color:var(--tx2);text-align:center;padding:4px 0}
+/* medicação */
+.rx{display:flex;align-items:center;gap:8px;margin:0 0 8px;background:rgba(228,180,94,.09);border-radius:14px;padding:9px 12px;color:var(--gold2);font-size:13px;line-height:1.35}
+.rx svg{width:16px;height:16px;flex:none}
+.wkb{border-bottom:1px solid var(--line);padding-bottom:2px}
+.wkb:last-child{border-bottom:0}
+.wkb .wk{border-bottom:0}
+.mb{height:32px;padding:0 11px;border-radius:12px;background:var(--s2);color:var(--tx);font-size:12.5px;font-weight:600;flex:none}
+.mb.dg{color:var(--up)}
+.bodyb{background:var(--s2);border-radius:22px;padding:8px 0}
+.bodyb svg{display:block;width:100%;max-width:230px;height:auto;margin:0 auto}
+.bfig{fill:var(--s3)}
+.site{fill:rgba(47,128,255,.28);stroke:var(--blue);stroke-width:2;cursor:pointer}
+.site.on{fill:var(--gold);stroke:var(--gold2)}
+.site:focus-visible{outline:2px solid var(--gold)}
 /* sheets */
 .sheetwrap{position:fixed;inset:0;z-index:50;display:none}
 .sheetwrap.open{display:block}
@@ -242,9 +256,9 @@ const unb64=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.lengt
 
 /* ---------- state ---------- */
 const KEY='pesoultra.v1';
-const blank=()=>({v:1,settings:{unit:'kg',goal:null,startKg:null,age:null,lock:null,lastBackup:null},weights:[],measures:{custom:[],entries:{}}});
+const blank=()=>({v:1,settings:{unit:'kg',goal:null,startKg:null,age:null,lock:null,lastBackup:null},weights:[],meds:[],measures:{custom:[],entries:{}}});
 let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
-{const b=blank();S=Object.assign(b,S||{});S.settings=Object.assign(blank().settings,S.settings||{});S.measures=S.measures||{};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};S.weights=S.weights||[];}
+{const b=blank();S=Object.assign(b,S||{});S.settings=Object.assign(blank().settings,S.settings||{});S.measures=S.measures||{};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};S.weights=S.weights||[];S.meds=Array.isArray(S.meds)?S.meds:[];}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 let PH=[];
 const DB={db:null,ok:true,
@@ -264,6 +278,21 @@ const BASE=[['abdomen','Barriga (abdômen)'],['cintura','Cintura'],['quadril','Q
 const allM=()=>[...BASE.map(([id,name])=>({id,name,custom:false})),...S.measures.custom.map(c=>({id:c.id,name:c.name,custom:true}))];
 const mName=id=>(allM().find(m=>m.id===id)||{}).name||id;
 const mSeries=id=>(S.measures.entries[id]||[]).slice().sort((a,b)=>a.d<b.d?-1:1);
+const MEDS=[['Mounjaro',['2,5','5','7,5','10','12,5','15'],'semanal'],['Ozempic',['0,25','0,5','1','2'],'semanal'],['Wegovy',['0,25','0,5','1','1,7','2,4'],'semanal'],['Trulicity',['0,75','1,5','3','4,5'],'semanal'],['Saxenda',['0,6','1,2','1,8','2,4','3'],'diária'],['Victoza',['0,6','1,2','1,8'],'diária']];
+const SITES=[['bd','Braço direito',53,95],['be','Braço esquerdo',147,95],['ad','Abdômen lado direito',84,122],['ae','Abdômen lado esquerdo',116,122],['cd','Coxa direita',84,196],['ce','Coxa esquerda',116,196]];
+const siteName=k=>(SITES.find(x=>x[0]===k)||[])[1]||'';
+const medTxt=m=>`${m.med} · ${m.dose} mg`;
+const medSorted=()=>S.meds.slice().sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:String(b.id).localeCompare(String(a.id)));
+const relD=d=>{const n=dayNum(today())-dayNum(d);return n===0?'hoje':n===1?'ontem':fShort(d)};
+const wdDM=d=>`${WD[parse(d).getDay()].toLowerCase()} ${d.slice(8)}/${d.slice(5,7)}`;
+const weekKey=d=>{const dt=parse(d);dt.setDate(dt.getDate()-((dt.getDay()+6)%7));return ymd(dt)};
+let mS=null,medMore=false;
+function weekRows(weeks,f,t){
+  const mp={};S.meds.filter(m=>m.d>=f&&m.d<=t).forEach(m=>{const k=weekKey(m.d);(mp[k]=mp[k]||[]).push(m)});
+  const rows=weeks.map(x=>({...x,meds:mp[x.k]||[]}));
+  Object.keys(mp).forEach(k=>{if(!rows.some(r=>r.k===k))rows.push({k,avg:null,n:0,delta:null,meds:mp[k]})});
+  rows.sort((a,b)=>a.k<b.k?-1:1);rows.forEach(r=>r.meds.sort((a,b)=>a.d<b.d?-1:1));return rows;
+}
 function setWeight(d,kg){S.weights=S.weights.filter(w=>w.d!==d);S.weights.push({d,kg});S.weights.sort((a,b)=>a.d<b.d?-1:1);save()}
 function addMeasure(id,d,v){
   const list=(S.measures.entries[id]||[]).filter(e=>e.d!==d);
@@ -358,6 +387,7 @@ const ic={
  target:I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".8"/>'),
  scale:I('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 9a4.5 4.5 0 0 1 7 0M12 9.2l1.6-1.4"/>'),
  pencil:I('<path d="m4 20 1-4L16 5l3 3L8 19z"/>'),
+ pill:I('<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="m9.2 9.2 5.6 5.6"/>'),
  cal:I('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/>'),
  spark:I('<path d="M12 4v4M12 16v4M4 12h4M16 12h4M7 7l2.5 2.5M14.5 14.5 17 17M17 7l-2.5 2.5M9.5 14.5 7 17"/>')
 };
@@ -375,7 +405,7 @@ const chipW=(dd)=>chipD(dd,1,unitL(),null,gainGoal());
 /* ---------- ui primitives ---------- */
 const sheetWrap=$('#sheetWrap'),sheetBody=$('#sheetBody');
 function openSheet(html){sheetBody.innerHTML=html;sheetWrap.classList.add('open');$('.sheet').scrollTop=0;drawCharts()}
-function closeSheet(){stopCam();sheetWrap.classList.remove('open');sheetBody.innerHTML='';curM=null;pState=null}
+function closeSheet(){stopCam();sheetWrap.classList.remove('open');sheetBody.innerHTML='';curM=null;pState=null;mS=null}
 const sh=(t,b)=>`<div class="sh-h"><h3>${t}</h3><button class="x" data-act="closeSheet" aria-label="Fechar">${ic.x}</button></div>${b}`;
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2800)}
 function dlg(html){$('#dlgBody').innerHTML=html;$('#dlgWrap').classList.add('open')}
@@ -460,6 +490,15 @@ function photoStrip(){
   else body=`<div class="strip">${PH.slice(-4).reverse().map(p=>`<button class="ph" data-act="pOpen" data-id="${p.id}" aria-label="Foto de ${fShort(p.d)}"><img src="${p.data}" alt=""><span class="tag">${fShort(p.d)}</span></button>`).join('')}</div>`;
   return `<section class="card"><div class="hd"><h2>Fotos de progresso</h2><button class="link" data-act="tab" data-t="fotos">Abrir</button></div>${body}</section>`;
 }
+function medHome(){
+  const m=medSorted()[0];if(!m)return '';
+  return `<div class="group"><button class="row" data-act="tab" data-t="analise"><span class="lead g">${ic.pill}</span><div class="t"><b>${esc(medTxt(m))}</b><span>Última aplicação: ${esc(siteName(m.site))} · ${relD(m.d)}</span></div>${ic.chev}</button></div>`;
+}
+function medCard(){
+  const all=medSorted(),L=medMore?all:all.slice(0,5);
+  const rows=L.map(m=>`<div class="hist"><div class="t"><b>${esc(medTxt(m))}</b><span>${esc(siteName(m.site))} · ${relD(m.d)}</span></div><button class="mb" data-act="medEdit" data-id="${esc(m.id)}">Editar</button><button class="mb dg" data-act="medDel" data-id="${esc(m.id)}">Deletar</button></div>`).join('');
+  return `<section class="card"><div class="hd"><h2>Medicação</h2><button class="link" data-act="medSheet">Registrar</button></div>${rows||'<p class="mut sm" style="margin:2px 0 12px">Registre cada aplicação: remédio, dosagem e local do corpo. A última aparece na tela inicial e as outras na semana a semana.</p><button class="btn ghost" data-act="medSheet">Registrar aplicação</button>'}${all.length>5?`<button class="link" style="margin-top:8px" data-act="medMore">${medMore?'Mostrar só as 5 últimas':'Ver todas ('+all.length+')'}</button>`:''}</section>`;
+}
 views.home=()=>{
   const w=S.weights,last=w.at(-1),u=unitL();
   const ex=w.find(x=>x.d===homeDate),before=w.filter(x=>x.d<=homeDate).at(-1)||last;
@@ -472,7 +511,7 @@ views.home=()=>{
   <div class="wunit">${u}</div><p class="pen-hint">S Pen detectada: escreva o valor à mão direto no campo.</p>
   <div style="margin-top:18px"><button class="btn" data-act="reg">${isT?'Registrar peso de hoje':'Salvar peso de '+fShort(homeDate)}</button></div>${dl2}
   <div class="dl"><button class="link" data-act="histSheet">Histórico e edição por data</button></div></section>
-  ${goalCard()}${measSummary()}${photoStrip()}`;
+  ${medHome()}${goalCard()}${measSummary()}${photoStrip()}`;
 };
 views.med=()=>{
   const ms=allM();
@@ -499,7 +538,7 @@ views.analise=()=>{
   const g=S.settings.goal!=null?toU(S.settings.goal):null;
   let stats='';
   if(pts.length){const a=pts[0].v,b=pts.at(-1).v,sl=slope(pts);stats=`<div class="stats"><div><small>Início</small><b>${nf(a)}</b></div><div><small>Atual</small><b>${nf(b)}</b></div><div><small>Variação</small><b class="${((b-a)<0)!==gainGoal()?'dn-t':(b-a)===0?'':'up-t'}">${sg(b-a)} ${u}</b></div></div>${sl!=null&&pts.length>2?`<p class="note" style="margin:10px 2px 0">Ritmo médio no período: <b>${sg(sl*7,2)} ${u}/semana</b></p>`:''}`}
-  const P=patterns(f,t);
+  const P=patterns(f,t),WKS=weekRows(P.weeks,f,t);
   const mx=Math.max(0.05,...P.wd.filter(v=>v!=null).map(Math.abs));
   const bars=P.wd.map((v,i)=>{const h=v==null?0:Math.abs(v)/mx*46;return `<div><div class="col"><span class="zero"></span>${v==null?'':(v>=0?`<span class="pos" style="height:${h}%"></span>`:`<span class="neg" style="height:${h}%"></span>`)}</div><span style="margin-top:6px">${WD[i]}</span></div>`});
   const order=[1,2,3,4,5,6,0];
@@ -507,10 +546,11 @@ views.analise=()=>{
   return `${top()}<h1 class="h1">Evolução</h1><p class="sub">Toque ou passe a S Pen sobre o gráfico para ver cada dia.</p>
   ${perBar('an')}
   <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${chartBox('w',pts,{h:230,dec:1,unit:u,goal:g,inv:gainGoal()})}${stats}</section>
+  ${medCard()}
   <section class="card"><h2>Padrões da semana</h2><p class="mut sm" style="margin:2px 0 4px">Variação média por dia (${u}/dia). Laranja sobe, verde desce.</p>
   <div class="wd">${order.map(i=>bars[i]).join('')}</div>
   <ul class="ins">${P.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
-  ${P.weeks.length>1?`<h2 style="margin:18px 0 4px;font-size:15px">Semana a semana</h2>${P.weeks.slice(-6).reverse().map(x=>`<div class="wk"><span>Semana de ${fShort(x.k)}</span><span><b>${nf(toU(x.avg))} ${u}</b> ${x.delta!=null?chipD(toU(x.delta),1,u,null,gainGoal()):''}</span></div>`).join('')}`:''}</section>
+  ${WKS.length>1||WKS.some(x=>x.meds.length)?`<h2 style="margin:18px 0 4px;font-size:15px">Semana a semana</h2>${WKS.slice(-6).reverse().map(x=>`<div class="wkb"><div class="wk"><span>Semana de ${fShort(x.k)}</span><span>${x.avg!=null?`<b>${nf(toU(x.avg))} ${u}</b> ${x.delta!=null?chipD(toU(x.delta),1,u,null,gainGoal()):''}`:'<span class="mut sm">sem pesagem</span>'}</span></div>${x.meds.map(m=>`<div class="rx">${ic.pill}<span>${esc(medTxt(m))} · ${esc(siteName(m.site))} · ${wdDM(m.d)}</span></div>`).join('')}</div>`).join('')}`:''}</section>
   ${measCards?`<h2 style="margin:22px 4px 10px;font-size:19px;font-weight:600">Medidas no período</h2>${measCards}`:''}`;
 };
 views.mais=()=>{
@@ -632,6 +672,27 @@ function lockHTML(){
 }
 function needUnlock(){return new Promise(res=>{if(!S.settings.lock||unlocked)return res(true);openSheet(unlockHTML());const t=setInterval(()=>{if(unlocked){clearInterval(t);res(true)}else if(!sheetWrap.classList.contains('open')){clearInterval(t);res(false)}},250)})}
 
+/* ---------- medicação ---------- */
+function medFormHTML(){
+  const m=mS,o=m.med==='Outro',x=MEDS.find(v=>v[0]===m.med);
+  const dose=o?`<label>Dosagem (mg)<input id="mdOd" inputmode="decimal" placeholder="Ex.: 2,5" value="${esc(m.dose||'')}"></label>`:`<label>Dosagem<select id="mdD">${x[1].map(d=>`<option value="${d}" ${d===m.dose?'selected':''}>${d} mg</option>`).join('')}</select></label>`;
+  const body=SITES.map(([k,n,cx,cy])=>`<circle class="site${m.site===k?' on':''}" data-act="medSite" data-s="${k}" cx="${cx}" cy="${cy}" r="11" tabindex="0" role="button" aria-label="${n}"/>`).join('');
+  return sh(m.id?'Editar aplicação':'Nova aplicação',`<div class="form">
+  <label>Medicamento<select id="mdN" data-chg="medsel">${MEDS.map(v=>`<option value="${v[0]}" ${v[0]===m.med?'selected':''}>${v[0]}</option>`).join('')}<option value="Outro" ${o?'selected':''}>Outro…</option></select></label>
+  ${o?`<label>Nome do medicamento<input id="mdOn" maxlength="30" placeholder="Ex.: Zepbound" value="${esc(m.oname||'')}"></label>`:''}
+  <div class="two">${dose}<label>Data<input type="date" id="mdDt" value="${m.d}" max="${today()}"></label></div>
+  ${o?'':`<p class="note" style="margin:-4px 0 0">Aplicação ${x[2]}.</p>`}
+  <div><p class="note" style="margin:0 0 6px">Local da aplicação</p><div class="bodyb"><svg viewBox="0 0 200 290" role="img" aria-label="Corpo de frente com seis locais de aplicação"><g class="bfig"><circle cx="100" cy="26" r="16"/><rect x="90" y="40" width="20" height="12" rx="4"/><rect x="66" y="50" width="68" height="104" rx="22"/><rect x="42" y="58" width="22" height="92" rx="11"/><rect x="136" y="58" width="22" height="92" rx="11"/><rect x="70" y="150" width="29" height="124" rx="13"/><rect x="101" y="150" width="29" height="124" rx="13"/></g><text x="8" y="16" font-size="11" fill="#9AA4BA">D</text><text x="186" y="16" font-size="11" fill="#9AA4BA">E</text>${body}</svg></div></div>
+  <p class="note" id="mdLoc" style="text-align:center;margin:0;color:var(--tx)">${m.site?esc(siteName(m.site)):'Toque no corpo para escolher o local'}</p>
+  <p class="note" id="mdErr" style="text-align:center;margin:0;min-height:18px;color:var(--up)"></p>
+  <button class="btn" data-act="medSave">OK</button></div>`);
+}
+function keepM(){
+  if(!mS)return;const d=$('#mdDt');if(d&&d.value)mS.d=d.value;
+  if($('#mdOn'))mS.oname=$('#mdOn').value;if($('#mdD'))mS.dose=$('#mdD').value;if($('#mdOd'))mS.dose=$('#mdOd').value;
+}
+function medErr(t){const e=$('#mdErr');if(e)e.textContent=t}
+
 /* ---------- backup ---------- */
 async function deriveKey(pass,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function encPayload(obj,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await deriveKey(pass,salt);const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(JSON.stringify(obj)));return {app:'peso-ultra',v:1,enc:true,kdf:'PBKDF2-SHA256-200000',salt:b64(salt),iv:b64(iv),ct:b64(ct)}}
@@ -644,9 +705,9 @@ function backupHTML(){
   <button class="btn" data-act="expJSON">Exportar backup (.json)</button><button class="btn ghost" data-act="expCSV">Exportar dados em .csv</button></div>
   <h2 style="margin:6px 0 8px;font-size:16px">Restaurar</h2><p class="note" style="margin:0 0 10px">Escolha um arquivo .json exportado pelo Peso Ultra. Backups criptografados pedem a senha.</p><label class="btn ghost ovl">Escolher arquivo de backup<input type="file" class="rfile" accept=".json,application/json" aria-label="Escolher arquivo de backup"></label>`);
 }
-function payload(withPh){const s={...S.settings};delete s.lock;return {settings:s,weights:S.weights,measures:S.measures,photos:withPh?PH:undefined,exportedAt:new Date().toISOString()}}
+function payload(withPh){const s={...S.settings};delete s.lock;return {settings:s,weights:S.weights,meds:S.meds,measures:S.measures,photos:withPh?PH:undefined,exportedAt:new Date().toISOString()}}
 async function applyPayload(p){
-  S.weights=Array.isArray(p.weights)?p.weights:[];S.measures=p.measures||{custom:[],entries:{}};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};
+  S.weights=Array.isArray(p.weights)?p.weights:[];S.meds=Array.isArray(p.meds)?p.meds:[];S.measures=p.measures||{custom:[],entries:{}};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};
   const lock=S.settings.lock;S.settings=Object.assign(blank().settings,p.settings||{});S.settings.lock=lock;save();
   if(Array.isArray(p.photos)){await DB.clear();PH=p.photos;for(const x of PH)await DB.put(x);sortPH()}
 }
@@ -742,6 +803,7 @@ function demo(){
   const ms={abdomen:[103,96.8],cintura:[97,91.2],quadril:[104.5,101.6],peito:[107,105],braco_d:[34,34.6],braco_e:[33.8,33.5],coxa_d:[61,58.8],coxa_e:[60.6,58.4],pescoco:[39.5,38.2]};
   S.measures={custom:[],entries:{}};
   Object.entries(ms).forEach(([id,[a,b]])=>{S.measures.entries[id]=[0,30,60,89].map(i=>({d:addDays(t,-(89-i)),v:Math.round((a+(b-a)*i/89+(rnd()-.5)*.5)*10)/10}))});
+  S.meds=[0,1,2,3,4].map(i=>({id:'demo'+i,med:'Mounjaro',dose:i<2?'5':'2,5',site:['cd','ad','be','ce','bd'][i],d:addDays(t,-2-7*i),other:false}));
   S.settings.goal=82;S.settings.startKg=S.weights[0].kg;S.settings.age=34;save();
 }
 
@@ -768,6 +830,41 @@ A.histSheet=()=>openSheet(histHTML());
 A.histSave=()=>{const d=$('#hsD').value,v=num($('#hsV').value);if(!d||v==null||fromU(v)<20||fromU(v)>400){toast('Informe data e peso válidos');return}const had=S.weights.some(w=>w.d===d);setWeight(d,fromU(v));openSheet(histHTML());renderView(true);toast(had?'Registro atualizado':'Registro salvo')};
 A.histEdit=el=>{const w=S.weights.find(x=>x.d===el.dataset.d);$('#hsD').value=w.d;$('#hsV').value=nf(toU(w.kg),1);$('.sheet').scrollTop=0;$('#hsV').focus()};
 A.histDel=async el=>{if(!await askConfirm('Excluir registro',`Remover o peso de ${fFull(el.dataset.d)}?`,'Excluir',true))return;S.weights=S.weights.filter(w=>w.d!==el.dataset.d);save();openSheet(histHTML());renderView(true)};
+A.medSheet=()=>{
+  const l=medSorted()[0],x=l&&MEDS.find(v=>v[0]===l.med);
+  mS=l&&x?{id:null,med:l.med,dose:l.dose,site:null,d:today(),oname:''}:{id:null,med:'Mounjaro',dose:MEDS[0][1][0],site:null,d:today(),oname:''};
+  openSheet(medFormHTML());
+};
+A.medEdit=el=>{
+  const m=S.meds.find(x=>String(x.id)===el.dataset.id);if(!m)return;
+  mS={id:m.id,med:m.other?'Outro':m.med,oname:m.other?m.med:'',dose:m.dose,site:m.site,d:m.d};
+  openSheet(medFormHTML());
+};
+A.medSite=el=>{
+  if(!mS)return;mS.site=el.dataset.s;$$('.site').forEach(c=>c.classList.toggle('on',c.dataset.s===mS.site));
+  $('#mdLoc').textContent=siteName(mS.site);medErr('');
+};
+A.medSave=()=>{
+  if(!mS)return;keepM();
+  const o=mS.med==='Outro';let name=mS.med,dose=mS.dose;
+  if(o){
+    name=(mS.oname||'').trim();const n=num(dose);
+    if(!name){medErr('Digite o nome do medicamento');return}
+    if(n==null||n<=0||n>100){medErr('Informe uma dosagem válida');return}
+    dose=String(n).replace('.',',');
+  }
+  if(!mS.site){medErr('Escolha o local da aplicação no corpo');return}
+  if(!mS.d||mS.d>today()){medErr('Informe uma data válida');return}
+  const rec={id:mS.id||'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),med:name,dose,site:mS.site,d:mS.d,other:o};
+  const i=S.meds.findIndex(x=>x.id===rec.id);if(i>=0)S.meds[i]=rec;else S.meds.push(rec);
+  save();const ed=i>=0;closeSheet();renderView(true);toast(ed?'Aplicação atualizada':'Aplicação registrada');
+};
+A.medDel=async el=>{
+  const m=S.meds.find(x=>String(x.id)===el.dataset.id);if(!m)return;
+  if(!await askConfirm('Deletar aplicação',`${esc(medTxt(m))} · ${esc(siteName(m.site))} · ${fFull(m.d)}. Isso não pode ser desfeito.`,'Deletar',true))return;
+  S.meds=S.meds.filter(x=>x.id!==m.id);save();renderView(true);toast('Aplicação deletada');
+};
+A.medMore=()=>{medMore=!medMore;renderView(true)};
 A.medRegSheet=()=>openSheet(medRegHTML());
 A.saveMedAll=()=>{
   const d=$('#mrD').value||today(),rows=[];
@@ -863,6 +960,7 @@ A.expCSV=async()=>{
   const q=v=>`"${String(v).replace(/"/g,'""')}"`,rows=[['tipo','data','item','valor','unidade']];
   S.weights.forEach(w=>rows.push(['peso',w.d,'Peso',nf(w.kg,1),'kg']));
   allM().forEach(m=>mSeries(m.id).forEach(e=>rows.push(['medida',e.d,m.name,nf(e.v,1),'cm'])));
+  medSorted().slice().reverse().forEach(m=>rows.push(['medicacao',m.d,`${m.med} (${siteName(m.site)})`,m.dose,'mg']));
   await dl(`peso-ultra-dados-${today()}.csv`,'\ufeff'+rows.map(r=>r.map(q).join(';')).join('\r\n'));
 };
 async function onRestore(e){
@@ -882,6 +980,7 @@ A.wipe=async()=>{if(!await askConfirm('Apagar tudo','Peso, medidas, fotos e conf
 /* ---------- events ---------- */
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el&&A[el.dataset.act]){e.preventDefault();A[el.dataset.act](el,e)}});
 const CHG={
+ medsel:()=>{keepM();mS.med=$('#mdN').value;const x=MEDS.find(v=>v[0]===mS.med);mS.dose=x?x[1][0]:'';openSheet(medFormHTML())},
  hdate:el=>{homeDate=el.value||today();renderView(true)},
  perfrom:el=>{PER[el.dataset.sc].from=el.value;repaint(el.dataset.sc)},
  perto:el=>{PER[el.dataset.sc].to=el.value;repaint(el.dataset.sc)},
@@ -891,7 +990,7 @@ const CHG={
 document.addEventListener('change',e=>{const el=e.target.closest('[data-chg]');if(el&&CHG[el.dataset.chg])CHG[el.dataset.chg](el,e)});
 document.addEventListener('pointerdown',e=>{document.body.classList.toggle('pen',e.pointerType==='pen')},true);
 document.addEventListener('pointerover',e=>{if(e.pointerType==='pen')document.body.classList.add('pen')},true);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#dlgWrap').classList.contains('open'))return;closeSheet()}if(e.key==='Enter'&&e.target.id==='wIn')A.reg()});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.act==='medSite'){e.preventDefault();A.medSite(e.target);return}if(e.key==='Escape'){if($('#dlgWrap').classList.contains('open'))return;closeSheet()}if(e.key==='Enter'&&e.target.id==='wIn')A.reg()});
 document.addEventListener('change',e=>{const c=e.target.classList;if(c&&c.contains('pfile'))onPhotoFile(e);else if(c&&c.contains('rfile'))onRestore(e)});
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawCharts,150)});
 
