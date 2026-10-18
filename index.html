@@ -320,6 +320,41 @@ function estimate(){
   return {cur,g,dir,reached,pct,rate,src,days,weeks:Math.ceil(days/7),date:addDays(today(),days),start,remain:Math.abs(g-cur)};
 }
 function streak(){const set=new Set(S.weights.map(w=>w.d));let d=today();if(!set.has(d))d=addDays(d,-1);let n=0;while(set.has(d)){n++;d=addDays(d,-1)}return n}
+/* média móvel de 7 dias (janela: o dia e os 6 anteriores) */
+function trendAt(n){const a=S.weights.filter(w=>{const k=dayNum(w.d);return k<=n&&k>n-7});return a.length?avg(a.map(w=>w.kg)):null}
+function trendNote(pts){
+  if(pts.length<4)return '';
+  const L=dayNum(pts.at(-1).d),c=trendAt(L),p=trendAt(L-7),u=unitL();
+  return `<p class="note" style="margin:10px 2px 0">Tendência atual: <b>${nf(toU(c))} ${u}</b>${p!=null?` (${sg(toU(c-p),1)} ${u} em 7 dias)`:''}</p>`;
+}
+function trendPts(pts){return pts.length<4?null:pts.map(p=>({d:p.d,v:toU(trendAt(dayNum(p.d)))}))}
+/* marcos e conquistas */
+function milestones(){
+  const w=S.weights,g=S.settings.goal,u=unitL(),done=[],T=[1,2,5,10,15,20,25,30,40,50];
+  if(!w.length)return {done,next:null};
+  const start=S.settings.startKg??w[0].kg,hasG=g!=null&&start!==g,dir=g!=null&&start>g?-1:1,total=hasG?Math.abs(start-g):0;
+  const prog=kg=>dir<0?start-kg:kg-start,cur=prog(w.at(-1).kg);
+  const first=f=>{const x=w.find(f);return x?x.d:null};
+  const cand=[];
+  if(hasG){
+    T.filter(t=>fromU(t)<=total+1e-9).forEach(t=>{const kg=fromU(t),title=dir<0?`−${nf(t,0)} ${u} perdidos`:`+${nf(t,0)} ${u} ganhos`,d=first(x=>prog(x.kg)>=kg-1e-9);d?done.push({id:'k'+t,t:title,d}):cand.push({title,rem:kg-cur})});
+    [[10,'10% do caminho'],[25,'25% do caminho'],[50,'Metade do caminho'],[75,'75% do caminho'],[100,'Meta atingida']].forEach(([p,title])=>{const need=total*p/100,d=first(x=>prog(x.kg)>=need-1e-9);d?done.push({id:'p'+p,t:title,d}):cand.push({title,rem:need-cur})});
+  }
+  const ds=[...new Set(w.map(x=>x.d))].sort();let run=0;const sk={};
+  ds.forEach((d,i)=>{run=i&&dayNum(d)-dayNum(ds[i-1])===1?run+1:1;[7,14,30,60,100].forEach(n=>{if(run>=n&&!sk[n]){sk[n]=d;done.push({id:'s'+n,t:`${n} dias seguidos registrando`,d})}})});
+  [10,30,100,200].forEach(n=>{if(w.length>=n)done.push({id:'n'+n,t:`${n} registros de peso`,d:w[n-1].d})});
+  [['cintura','Cintura'],['abdomen','Abdômen']].forEach(([id,name])=>{const s=mSeries(id);if(s.length<2)return;[2,5,10,15].forEach(t=>{const e=s.find(x=>s[0].v-x.v>=t-1e-9);if(e)done.push({id:'m'+id+t,t:`${name} −${t} cm`,d:e.d})})});
+  done.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:a.id<b.id?-1:1);
+  const nx=cand.filter(c=>c.rem>0).sort((a,b)=>a.rem-b.rem)[0];
+  return {done,next:nx?`Próximo marco: ${nx.title} (faltam ${nf(toU(nx.rem),1)} ${u})`:null};
+}
+const msIds=()=>new Set(milestones().done.map(x=>x.id));
+function announce(before,extra){
+  const nw=milestones().done.filter(x=>!before.has(x.id)),m=[];
+  if(extra)m.push(extra);
+  if(nw.length)m.push(nw.length===1?`Novo marco: ${nw[0].t}`:`${nw.length} novos marcos: ${nw.map(x=>x.t).join(', ')}`);
+  if(m.length)setTimeout(()=>toast(m.join(' · ')),3000);
+}
 function motivation(){
   const w=S.weights;if(!w.length)return 'Registre seu primeiro peso para começar. Cada dado conta.';
   const e=estimate(),last=w.at(-1),since=dayNum(today())-dayNum(last.d),st=streak(),u=unitL();
@@ -389,7 +424,8 @@ const ic={
  pencil:I('<path d="m4 20 1-4L16 5l3 3L8 19z"/>'),
  pill:I('<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="m9.2 9.2 5.6 5.6"/>'),
  cal:I('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/>'),
- spark:I('<path d="M12 4v4M12 16v4M4 12h4M16 12h4M7 7l2.5 2.5M14.5 14.5 17 17M17 7l-2.5 2.5M9.5 14.5 7 17"/>')
+ spark:I('<path d="M12 4v4M12 16v4M4 12h4M16 12h4M7 7l2.5 2.5M14.5 14.5 17 17M17 7l-2.5 2.5M9.5 14.5 7 17"/>'),
+ trophy:I('<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8.5 20h7"/>')
 };
 
 /* ---------- chips ---------- */
@@ -427,7 +463,7 @@ function drawChart(el,pts,o){
   if(pts.length<2){el.style.height='auto';el.innerHTML='<div class="empty">Registre ao menos 2 valores no período para ver o gráfico.</div>';return}
   const W=el.clientWidth||320,H=o.h||220,pl=o.compact?6:38,pr=10,pt=14,pb=o.compact?8:26,dec=o.dec??1,inv=!!o.inv;
   const t0=dayNum(pts[0].d),t1=dayNum(pts.at(-1).d),span=Math.max(1,t1-t0);
-  const vals=pts.map(p=>p.v);if(o.goal!=null)vals.push(o.goal);
+  const vals=pts.map(p=>p.v);if(o.goal!=null)vals.push(o.goal);if(o.trend)o.trend.forEach(p=>vals.push(p.v));
   let mn=Math.min(...vals),mx=Math.max(...vals);const pv=(mx-mn)*.14||1;mn-=pv;mx+=pv;
   const X=d=>pl+(dayNum(d)-t0)/span*(W-pl-pr),Y=v=>pt+(1-(v-mn)/(mx-mn))*(H-pt-pb);
   const id='g'+(++chId),col=(a,b)=>((b.v<a.v)!==inv)?'#37D69A':((b.v===a.v)?'#9AA4BA':'#FF8A3D');
@@ -438,13 +474,14 @@ function drawChart(el,pts,o){
   s+=`<path d="${line}L${X(pts.at(-1).d).toFixed(1)} ${H-pb}L${X(pts[0].d).toFixed(1)} ${H-pb}Z" fill="url(#${id})"/>`;
   if(o.goal!=null){const y=Y(o.goal);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="#E4B45E" stroke-width="1.4" stroke-dasharray="5 5"/><text x="${W-pr}" y="${y-6}" text-anchor="end" font-size="10.5" fill="#E4B45E" font-weight="600">Meta ${nf(o.goal,dec)}</text>`}
   for(let i=1;i<pts.length;i++)s+=`<line x1="${X(pts[i-1].d).toFixed(1)}" y1="${Y(pts[i-1].v).toFixed(1)}" x2="${X(pts[i].d).toFixed(1)}" y2="${Y(pts[i].v).toFixed(1)}" stroke="${col(pts[i-1],pts[i])}" stroke-width="3" stroke-linecap="round"/>`;
+  if(o.trend&&!o.compact)s+=`<path d="${o.trend.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')}" fill="none" stroke="#6FA8FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
   if(pts.length<=40&&!o.compact)pts.forEach((p,i)=>{if(i<pts.length-1)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="#0F1218" stroke="${i?col(pts[i-1],p):'#9AA4BA'}" stroke-width="1.8"/>`});
   const L=pts.at(-1);s+=`<circle cx="${X(L.d)}" cy="${Y(L.v)}" r="9" fill="#E4B45E" opacity=".18"/><circle cx="${X(L.d)}" cy="${Y(L.v)}" r="4.6" fill="#E4B45E"/>`;
   s+=`<g class="cur" style="display:none"><line y1="${pt}" y2="${H-pb}" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 4"/><circle r="5.5" fill="#fff" stroke="#2F80FF" stroke-width="3"/></g></svg><div class="tip"></div>`;
   el.innerHTML=s;
   const svg=el.querySelector('svg'),tip=el.querySelector('.tip'),cur=el.querySelector('.cur');
   const show=i=>{const p=pts[i],x=X(p.d),y=Y(p.v);cur.style.display='';cur.querySelector('line').setAttribute('x1',x);cur.querySelector('line').setAttribute('x2',x);cur.querySelector('circle').setAttribute('cx',x);cur.querySelector('circle').setAttribute('cy',y);
-    const pr2=pts[i-1];tip.innerHTML=`<span class="mut">${fFull(p.d)}</span><br><b>${nf(p.v,dec)}${o.unit?' '+o.unit:''}</b>${pr2?` <span class="${((p.v<pr2.v)!==inv)?'dn-t':'up-t'}">${sg(p.v-pr2.v,dec)}</span>`:''}`;
+    const pr2=pts[i-1];tip.innerHTML=`<span class="mut">${fFull(p.d)}</span><br><b>${nf(p.v,dec)}${o.unit?' '+o.unit:''}</b>${pr2?` <span class="${((p.v<pr2.v)!==inv)?'dn-t':'up-t'}">${sg(p.v-pr2.v,dec)}</span>`:''}${o.trend?`<br><span class="mut">média 7 dias: ${nf(o.trend[i].v,dec)}</span>`:''}`;
     tip.style.display='block';const tw=tip.offsetWidth;tip.style.left=clamp(x-tw/2,0,W-tw)+'px'};
   const move=e=>{const r=svg.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W;let bi=0,bd=1e9;pts.forEach((p,i)=>{const d=Math.abs(X(p.d)-x);if(d<bd){bd=d;bi=i}});show(bi)};
   const hide=()=>{cur.style.display='none';tip.style.display='none'};
@@ -499,6 +536,21 @@ function medCard(){
   const rows=L.map(m=>`<div class="hist"><div class="t"><b>${esc(medTxt(m))}</b><span>${esc(siteName(m.site))} · ${relD(m.d)}</span></div><button class="mb" data-act="medEdit" data-id="${esc(m.id)}">Editar</button><button class="mb dg" data-act="medDel" data-id="${esc(m.id)}">Deletar</button></div>`).join('');
   return `<section class="card"><div class="hd"><h2>Medicação</h2><button class="link" data-act="medSheet">Registrar</button></div>${rows||'<p class="mut sm" style="margin:2px 0 12px">Registre cada aplicação: remédio, dosagem e local do corpo. A última aparece na tela inicial e as outras na semana a semana.</p><button class="btn ghost" data-act="medSheet">Registrar aplicação</button>'}${all.length>5?`<button class="link" style="margin-top:8px" data-act="medMore">${medMore?'Mostrar só as 5 últimas':'Ver todas ('+all.length+')'}</button>`:''}</section>`;
 }
+function msCard(){
+  const m=milestones();if(!m.done.length&&!m.next)return '';
+  const rows=m.done.slice(0,3).map(x=>`<div class="rx">${ic.trophy}<span>${esc(x.t)} · ${relD(x.d)}</span></div>`).join('');
+  return `<section class="card"><div class="hd"><h2>Marcos</h2>${m.done.length>3?`<button class="link" data-act="msSheet">Ver todos (${m.done.length})</button>`:''}</div>${rows||'<p class="mut sm" style="margin:2px 0 8px">Seus marcos aparecem aqui conforme você avança.</p>'}${m.next?`<p class="note" style="margin:${rows?'4px':'0'} 2px 0">${esc(m.next)}</p>`:''}</section>`;
+}
+function msHTML(){
+  const m=milestones();
+  return sh('Marcos e conquistas',`${m.next?`<div class="msg" style="margin:0 0 14px">${esc(m.next)}</div>`:''}${m.done.length?m.done.map(x=>`<div class="hist"><span class="lead g" style="width:22px;color:var(--gold)">${ic.trophy}</span><div class="t"><b>${esc(x.t)}</b><span>${cap(fmt(x.d,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</span></div></div>`).join(''):'<div class="empty">Nenhum marco ainda. Continue registrando.</div>'}`);
+}
+function backupNag(){
+  const d=S.settings.lastBackup;
+  if(!(S.weights.length>=3||PH.length))return '';
+  if(d&&dayNum(today())-dayNum(d)<=7)return '';
+  return `<section class="card" style="padding:16px 18px"><p class="note" style="margin:0 0 12px;color:var(--gold2)">${d?`Faz ${dayNum(today())-dayNum(d)} dias desde o último backup.`:'Você ainda não fez nenhum backup.'} Seus dados ficam só neste aparelho.</p><button class="btn sm" data-act="quickBackup">${ic.cloud} Fazer backup agora</button></section>`;
+}
 views.home=()=>{
   const w=S.weights,last=w.at(-1),u=unitL();
   const ex=w.find(x=>x.d===homeDate),before=w.filter(x=>x.d<=homeDate).at(-1)||last;
@@ -511,7 +563,7 @@ views.home=()=>{
   <div class="wunit">${u}</div><p class="pen-hint">S Pen detectada: escreva o valor à mão direto no campo.</p>
   <div style="margin-top:18px"><button class="btn" data-act="reg">${isT?'Registrar peso de hoje':'Salvar peso de '+fShort(homeDate)}</button></div>${dl2}
   <div class="dl"><button class="link" data-act="histSheet">Histórico e edição por data</button></div></section>
-  ${medHome()}${goalCard()}${measSummary()}${photoStrip()}`;
+  ${backupNag()}${medHome()}${goalCard()}${msCard()}${measSummary()}${photoStrip()}`;
 };
 views.med=()=>{
   const ms=allM();
@@ -545,7 +597,7 @@ views.analise=()=>{
   const measCards=allM().map(m=>{const s=mSeries(m.id).filter(e=>e.d>=f&&e.d<=t);if(s.length<2)return '';const d=s.at(-1).v-s[0].v;return `<button class="card" style="width:100%;text-align:left;padding:16px 18px" data-act="openM" data-id="${m.id}"><div class="hd" style="margin-bottom:6px"><h2>${esc(m.name)}</h2>${chipD(d,1,'cm',d/s[0].v*100)}</div>${chartBox('m_'+m.id,s.map(e=>({d:e.d,v:e.v})),{h:96,compact:true,dec:1,unit:'cm'})}</button>`}).join('');
   return `${top()}<h1 class="h1">Evolução</h1><p class="sub">Toque ou passe a S Pen sobre o gráfico para ver cada dia.</p>
   ${perBar('an')}
-  <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${chartBox('w',pts,{h:230,dec:1,unit:u,goal:g,inv:gainGoal()})}${stats}</section>
+  <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${chartBox('w',pts,{h:230,dec:1,unit:u,goal:g,inv:gainGoal(),trend:trendPts(pts)})}${pts.length>=4?`<p class="note" style="margin:8px 2px 0"><span style="color:#6FA8FF;font-weight:700">━</span> Linha azul: média móvel de 7 dias. Ela filtra as oscilações de água e comida e mostra a tendência real.</p>`:''}${stats}${trendNote(pts)}</section>
   ${medCard()}
   <section class="card"><h2>Padrões da semana</h2><p class="mut sm" style="margin:2px 0 4px">Variação média por dia (${u}/dia). Laranja sobe, verde desce.</p>
   <div class="wd">${order.map(i=>bars[i]).join('')}</div>
@@ -697,12 +749,38 @@ function medErr(t){const e=$('#mdErr');if(e)e.textContent=t}
 async function deriveKey(pass,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function encPayload(obj,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await deriveKey(pass,salt);const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(JSON.stringify(obj)));return {app:'peso-ultra',v:1,enc:true,kdf:'PBKDF2-SHA256-200000',salt:b64(salt),iv:b64(iv),ct:b64(ct)}}
 async function decPayload(f,pass){const k=await deriveKey(pass,unb64(f.salt));const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(f.iv)},k,unb64(f.ct));return JSON.parse(new TextDecoder().decode(pt))}
+let persisted=null;
+async function makeBackup(withPh,pw){
+  let out={app:'peso-ultra',v:1,enc:false,data:payload(withPh)};
+  if(pw)out=await encPayload(payload(withPh),pw);
+  return {blob:new Blob([JSON.stringify(out)],{type:'application/json'}),name:`peso-ultra-backup-${today()}${pw?'-criptografado':''}.json`};
+}
+async function shareFile(blob,name){
+  if(navigator.share&&navigator.canShare){
+    for(const t of ['application/json','text/plain']){
+      const f=new File([blob],name,{type:t});
+      if(navigator.canShare({files:[f]})){
+        try{await navigator.share({files:[f],title:'Backup do Peso Ultra'});return 'shared'}
+        catch(e){return e&&e.name==='AbortError'?'cancel':'unsupported'}
+      }
+    }
+  }
+  return 'unsupported';
+}
+async function finishBackup(blob,name){
+  const r=await shareFile(blob,name);
+  if(r==='cancel')return false;
+  const ok=r==='shared'?true:await dl(name,blob);
+  if(ok){S.settings.lastBackup=today();save();if(sheetWrap.classList.contains('open'))openSheet(backupHTML());renderView(true);if(r==='shared')toast('Backup compartilhado')}
+  return ok;
+}
 function backupHTML(){
   const d=S.settings.lastBackup,old=!d||dayNum(today())-dayNum(d)>7;
   return sh('Backup e restauração',`${old&&(S.weights.length||PH.length)?`<div class="msg" style="margin:0 0 14px">Faz mais de 7 dias desde o último backup. Salve uma cópia em local seguro (como o Google Drive ou o Samsung Cloud).</div>`:''}
   <div class="form"><label class="chk"><input type="checkbox" id="bPh" checked> Incluir fotos de progresso</label>
   <label>Senha para criptografar (opcional)<input id="bPw" type="password" autocomplete="new-password" placeholder="Deixe vazio para não criptografar"></label>
-  <button class="btn" data-act="expJSON">Exportar backup (.json)</button><button class="btn ghost" data-act="expCSV">Exportar dados em .csv</button></div>
+  <button class="btn" data-act="shareJSON">${ic.cloud} Salvar no Drive ou compartilhar</button><button class="btn ghost" data-act="expJSON">Baixar backup (.json)</button><button class="btn ghost" data-act="expCSV">Exportar dados em .csv</button></div>
+  <p class="note" style="margin:12px 2px 0">${persisted===true?'Armazenamento protegido: o Android não apaga os dados do app por falta de espaço.':persisted===false?'O Android pode apagar os dados do app se faltar espaço no aparelho. Por isso, faça backup com frequência.':''}</p>
   <h2 style="margin:6px 0 8px;font-size:16px">Restaurar</h2><p class="note" style="margin:0 0 10px">Escolha um arquivo .json exportado pelo Peso Ultra. Backups criptografados pedem a senha.</p><label class="btn ghost ovl">Escolher arquivo de backup<input type="file" class="rfile" accept=".json,application/json" aria-label="Escolher arquivo de backup"></label>`);
 }
 function payload(withPh){const s={...S.settings};delete s.lock;return {settings:s,weights:S.weights,meds:S.meds,measures:S.measures,photos:withPh?PH:undefined,exportedAt:new Date().toISOString()}}
@@ -816,8 +894,11 @@ A.step=el=>{const i=$('#wIn'),cur=num(i.value)??(S.weights.length?toU(S.weights.
 A.reg=()=>{
   const v=num($('#wIn').value);if(v==null){toast('Digite um peso válido');return}
   const kg=fromU(v);if(kg<20||kg>400){toast('Esse valor parece fora do normal');return}
-  const d=homeDate,prev=S.weights.filter(w=>w.d<d).at(-1);setWeight(d,kg);
+  const d=homeDate,prev=S.weights.filter(w=>w.d<d).at(-1),before=msIds(),others=S.weights.filter(w=>w.d!==d).map(w=>w.kg);
+  setWeight(d,kg);
   toast(prev?`Registrado: ${nf(toU(kg))} ${unitL()} (${sg(toU(kg-prev.kg))} vs anterior)`:`Primeiro peso registrado: ${nf(toU(kg))} ${unitL()}`);
+  const rec=S.settings.goal!=null&&others.length>=5&&d>=S.weights.at(-1).d?(gainGoal()?(kg>Math.max(...others)?'Maior peso registrado até agora':''):(kg<Math.min(...others)?'Menor peso registrado até agora':'')):'';
+  announce(before,rec);
   homeDate=today();renderView(true);
 };
 A.goalSheet=()=>openSheet(goalHTML());
@@ -827,7 +908,7 @@ A.saveGoal=()=>{
   S.settings.goal=fromU(g);S.settings.startKg=st!=null?fromU(st):(S.weights.at(-1)?.kg??null);S.settings.age=a!=null&&a>=10&&a<=110?Math.round(a):null;save();closeSheet();renderView(true);toast('Meta salva');
 };
 A.histSheet=()=>openSheet(histHTML());
-A.histSave=()=>{const d=$('#hsD').value,v=num($('#hsV').value);if(!d||v==null||fromU(v)<20||fromU(v)>400){toast('Informe data e peso válidos');return}const had=S.weights.some(w=>w.d===d);setWeight(d,fromU(v));openSheet(histHTML());renderView(true);toast(had?'Registro atualizado':'Registro salvo')};
+A.histSave=()=>{const d=$('#hsD').value,v=num($('#hsV').value);if(!d||v==null||fromU(v)<20||fromU(v)>400){toast('Informe data e peso válidos');return}const had=S.weights.some(w=>w.d===d),before=msIds();setWeight(d,fromU(v));openSheet(histHTML());renderView(true);toast(had?'Registro atualizado':'Registro salvo');announce(before)};
 A.histEdit=el=>{const w=S.weights.find(x=>x.d===el.dataset.d);$('#hsD').value=w.d;$('#hsV').value=nf(toU(w.kg),1);$('.sheet').scrollTop=0;$('#hsV').focus()};
 A.histDel=async el=>{if(!await askConfirm('Excluir registro',`Remover o peso de ${fFull(el.dataset.d)}?`,'Excluir',true))return;S.weights=S.weights.filter(w=>w.d!==el.dataset.d);save();openSheet(histHTML());renderView(true)};
 A.medSheet=()=>{
@@ -950,12 +1031,22 @@ A.expJSON=async()=>{
   const withPh=$('#bPh').checked,pw=$('#bPw').value;
   if(withPh&&PH.length&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return;openSheet(backupHTML());toast('Desbloqueado. Toque em exportar novamente.');return}
   try{
-    let out=payload(withPh);out={app:'peso-ultra',v:1,enc:false,data:out};
-    if(pw)out=await encPayload(payload(withPh),pw);
-    const ok=await dl(`peso-ultra-backup-${today()}${pw?'-criptografado':''}.json`,new Blob([JSON.stringify(out)],{type:'application/json'}));
+    const {blob,name}=await makeBackup(withPh,pw);
+    const ok=await dl(name,blob);
     if(ok){S.settings.lastBackup=today();save();openSheet(backupHTML())}
   }catch(e){toast('Falha ao gerar o backup')}
 };
+A.shareJSON=async()=>{
+  const withPh=$('#bPh').checked,pw=$('#bPw').value;
+  if(withPh&&PH.length&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return;openSheet(backupHTML());toast('Desbloqueado. Toque novamente para compartilhar.');return}
+  try{const {blob,name}=await makeBackup(withPh,pw);await finishBackup(blob,name)}catch(e){toast('Falha ao gerar o backup')}
+};
+A.quickBackup=async()=>{
+  const r=await DB.all();if(Array.isArray(r)){PH=r;sortPH()}
+  if(PH.length&&S.settings.lock){openSheet(backupHTML());toast('Suas fotos estão protegidas. Escolha as opções do backup.');return}
+  try{const {blob,name}=await makeBackup(true,'');await finishBackup(blob,name)}catch(e){toast('Falha ao gerar o backup')}
+};
+A.msSheet=()=>openSheet(msHTML());
 A.expCSV=async()=>{
   const q=v=>`"${String(v).replace(/"/g,'""')}"`,rows=[['tipo','data','item','valor','unidade']];
   S.weights.forEach(w=>rows.push(['peso',w.d,'Peso',nf(w.kg,1),'kg']));
@@ -996,6 +1087,7 @@ let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(draw
 
 /* ---------- boot ---------- */
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+try{if(navigator.storage&&navigator.storage.persist){navigator.storage.persisted().then(p=>p||navigator.storage.persist()).then(p=>{persisted=!!p}).catch(()=>{})}}catch(e){}
 renderView();
 DB.all().then(r=>{if(Array.isArray(r)&&r.length){PH=r;sortPH();if(tab==='home'||tab==='fotos')renderView(true)}});
 })();
