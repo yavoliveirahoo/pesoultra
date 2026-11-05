@@ -352,17 +352,17 @@ function trendNote(pts){
   return `<p class="note" style="margin:10px 2px 0">Tendência atual: <b>${nf(toU(c))} ${u}</b>${p!=null?` (${sg(toU(c-p),1)} ${u} em 7 dias)`:''}</p>`;
 }
 /* projeção até a meta: reta do último peso até a data prevista de estimate().
-   Só aparece se o período termina no último registro. O eixo estende no máximo max(14 dias, 60% do período). */
+   Só aparece se o período termina no último registro. O eixo do gráfico estica até a data da meta (no máximo 365 dias à frente). */
 function projFor(pts){
   const e=estimate();if(!e||e.reached||pts.length<2)return null;
   const last=pts.at(-1),wl=S.weights.at(-1);if(!wl||last.d!==wl.d)return null;
   const D=dayNum(e.date)-dayNum(last.d);if(D<1)return null;
-  const span=dayNum(last.d)-dayNum(pts[0].d),ext=Math.min(D,Math.max(14,Math.round(span*.6))),goalU=toU(e.g);
+  const ext=Math.min(D,365),goalU=toU(e.g);
   return {d0:last.d,v0:last.v,D,goalU,ext,full:ext>=D,date:e.date,src:e.src,rate:e.rate,vEnd:last.v+(goalU-last.v)*ext/D};
 }
 function projNote(p){
   if(!p)return '';const u=unitL();
-  const base=p.full?`Chegada prevista em <b>${fFull(p.date)}</b>.`:`A meta de ${nf(p.goalU)} ${u} é prevista para <b>${fFull(p.date)}</b>, além do que cabe no gráfico.`;
+  const base=p.full?`Chegada prevista em <b>${fFull(p.date)}</b>.`:`A meta de ${nf(p.goalU)} ${u} é prevista para <b>${fFull(p.date)}</b>, mais de um ano à frente; o gráfico mostra só o primeiro ano.`;
   const src=p.src==='real'?`No seu ritmo recente (${nf(toU(p.rate*7),2)} ${u}/semana).`:'Pelo ritmo padrão para a sua idade; passa a usar o seu ritmo real com mais registros.';
   return `<p class="note" style="margin:8px 2px 0"><span style="color:#DCE6FF;font-weight:700">┄┄</span> Pontilhado: projeção até a meta. ${base} ${src}</p>`;
 }
@@ -511,11 +511,11 @@ function drawChart(el,pts,o){
   if(!o.compact){for(let k=0;k<4;k++){const v=mn+(mx-mn)*k/3,y=Y(v);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.07)"/><text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="#5F6A82">${nf(v,dec)}</text>`}
     const pEnd=PJ?addDays(PJ.d0,PJ.ext):null;
     let xl=PJ?[pts[0].d,pts.at(-1).d,pEnd]:[pts[0].d,pts[Math.floor(pts.length/2)].d,pts.at(-1).d];
-    if(PJ&&X(pEnd)-X(PJ.d0)<64)xl=[pts[0].d,null,pEnd];
+    if(PJ&&(X(pEnd)-X(PJ.d0)<64||X(PJ.d0)-X(pts[0].d)<96))xl=[pts[0].d,null,pEnd];
     xl.forEach((d,i)=>{if(!d)return;s+=`<text x="${X(d)}" y="${H-6}" text-anchor="${i===0?'start':i===2?'end':'middle'}" font-size="10.5" fill="#5F6A82">${fShort(d)}</text>`})}
   const line=pts.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('');
   s+=`<path d="${line}L${X(pts.at(-1).d).toFixed(1)} ${H-pb}L${X(pts[0].d).toFixed(1)} ${H-pb}Z" fill="url(#${id})"/>`;
-  if(o.goal!=null){const y=Y(o.goal);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="#E4B45E" stroke-width="1.4" stroke-dasharray="5 5"/><text x="${W-pr}" y="${y-6}" text-anchor="end" font-size="10.5" fill="#E4B45E" font-weight="600">Meta ${nf(o.goal,dec)}</text>`}
+  if(o.goal!=null){const y=Y(o.goal);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="#E4B45E" stroke-width="1.4" stroke-dasharray="5 5"/><text x="${PJ?pl+4:W-pr}" y="${y-6}" text-anchor="${PJ?'start':'end'}" font-size="10.5" fill="#E4B45E" font-weight="600">Meta ${nf(o.goal,dec)}</text>`}
   const MD={};(o.meds||[]).forEach(m=>{const k=dayNum(m.d);if(k>=t0&&k<=t1)(MD[m.d]=MD[m.d]||[]).push(m.txt)});
   if(PJ){const x1=X(PJ.d0),y1=Y(PJ.v0),x2=X(addDays(PJ.d0,PJ.ext)),y2=Y(PJ.vEnd);
     s+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#DCE6FF" stroke-width="2.4" stroke-dasharray="0.1 6" stroke-linecap="round"/>`;
@@ -524,7 +524,7 @@ function drawChart(el,pts,o){
   if(!o.compact)Object.keys(MD).forEach(d=>{const x=X(d),b=H-pb;s+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${pt}" y2="${b}" stroke="#A98BFF" stroke-opacity=".3" stroke-dasharray="2 4"/><path d="M${(x-5).toFixed(1)} ${b}L${(x+5).toFixed(1)} ${b}L${x.toFixed(1)} ${b-9}Z" fill="#A98BFF"/>`});
   for(let i=1;i<pts.length;i++)s+=`<line x1="${X(pts[i-1].d).toFixed(1)}" y1="${Y(pts[i-1].v).toFixed(1)}" x2="${X(pts[i].d).toFixed(1)}" y2="${Y(pts[i].v).toFixed(1)}" stroke="${col(pts[i-1],pts[i])}" stroke-width="3" stroke-linecap="round"/>`;
   if(o.trend&&!o.compact)s+=`<path d="${o.trend.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')}" fill="none" stroke="#6FA8FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
-  if(pts.length<=40&&!o.compact)pts.forEach((p,i)=>{if(i<pts.length-1)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="#0F1218" stroke="${i?col(pts[i-1],p):'#9AA4BA'}" stroke-width="1.8"/>`});
+  if(pts.length<=40&&!o.compact&&(!PJ||(X(pts.at(-1).d)-X(pts[0].d))/(pts.length-1)>=9))pts.forEach((p,i)=>{if(i<pts.length-1)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="#0F1218" stroke="${i?col(pts[i-1],p):'#9AA4BA'}" stroke-width="1.8"/>`});
   if(!o.compact)pts.forEach(p=>{if(p.n)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="7" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>`});
   const L=pts.at(-1);s+=`<circle cx="${X(L.d)}" cy="${Y(L.v)}" r="9" fill="#E4B45E" opacity=".18"/><circle cx="${X(L.d)}" cy="${Y(L.v)}" r="4.6" fill="#E4B45E"/>`;
   s+=`<g class="cur" style="display:none"><line y1="${pt}" y2="${H-pb}" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 4"/><circle r="5.5" fill="#fff" stroke="#2F80FF" stroke-width="3"/></g></svg><div class="tip"></div>`;
