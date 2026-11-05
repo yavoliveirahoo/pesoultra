@@ -510,20 +510,26 @@ function drawChart(el,pts,o){
   let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F80FF" stop-opacity=".28"/><stop offset="1" stop-color="#2F80FF" stop-opacity="0"/></linearGradient></defs>`;
   if(!o.compact){for(let k=0;k<4;k++){const v=mn+(mx-mn)*k/3,y=Y(v);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.07)"/><text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="#5F6A82">${nf(v,dec)}</text>`}
     const pEnd=PJ?addDays(PJ.d0,PJ.ext):null;
-    let xl=PJ?[pts[0].d,pts.at(-1).d,pEnd]:[pts[0].d,pts[Math.floor(pts.length/2)].d,pts.at(-1).d];
-    if(PJ&&(X(pEnd)-X(PJ.d0)<64||X(PJ.d0)-X(pts[0].d)<96))xl=[pts[0].d,null,pEnd];
-    xl.forEach((d,i)=>{if(!d)return;s+=`<text x="${X(d)}" y="${H-6}" text-anchor="${i===0?'start':i===2?'end':'middle'}" font-size="10.5" fill="#5F6A82">${fShort(d)}</text>`})}
+    let xl=[[pts[0].d,'start'],[pts[Math.floor(pts.length/2)].d,'middle'],[pts.at(-1).d,'end']];
+    if(PJ){
+      /* início, fim e, se couber, hoje e os terços do caminho até a meta */
+      const L=[[pts[0].d,'start',pl+28],[pEnd,'end',W-pr-28]],ok=x=>x>=pl+58&&x<=W-pr-58&&L.every(l=>Math.abs(l[2]-x)>=70);
+      [PJ.d0,addDays(PJ.d0,Math.round(PJ.ext/3)),addDays(PJ.d0,Math.round(PJ.ext*2/3))].forEach(d=>{const x=X(d);if(ok(x))L.push([d,'middle',x])});
+      xl=L.map(l=>[l[0],l[1]]);
+    }
+    xl.forEach(([d,an])=>{s+=`<text x="${X(d)}" y="${H-6}" text-anchor="${an}" font-size="10.5" fill="#5F6A82">${fShort(d)}</text>`})}
   const line=pts.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('');
   s+=`<path d="${line}L${X(pts.at(-1).d).toFixed(1)} ${H-pb}L${X(pts[0].d).toFixed(1)} ${H-pb}Z" fill="url(#${id})"/>`;
+  if(PJ&&o.trend)s+=`<path d="${line}" fill="none" stroke="#9AA4BA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
   if(o.goal!=null){const y=Y(o.goal);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="#E4B45E" stroke-width="1.4" stroke-dasharray="5 5"/><text x="${PJ?pl+4:W-pr}" y="${y-6}" text-anchor="${PJ?'start':'end'}" font-size="10.5" fill="#E4B45E" font-weight="600">Meta ${nf(o.goal,dec)}</text>`}
   const MD={};(o.meds||[]).forEach(m=>{const k=dayNum(m.d);if(k>=t0&&k<=t1)(MD[m.d]=MD[m.d]||[]).push(m.txt)});
   if(PJ){const x1=X(PJ.d0),y1=Y(PJ.v0),x2=X(addDays(PJ.d0,PJ.ext)),y2=Y(PJ.vEnd);
-    s+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#DCE6FF" stroke-width="2.4" stroke-dasharray="0.1 6" stroke-linecap="round"/>`;
+    s+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#DCE6FF" stroke-width="3.2" stroke-dasharray="0.1 7.5" stroke-linecap="round"/>`;
     if(PJ.full)s+=`<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="5.5" fill="#0F1218" stroke="#E4B45E" stroke-width="2"/>`}
   const wrapT=t=>`<span style="display:inline-block;max-width:200px;white-space:normal">${esc(t)}</span>`;
   if(!o.compact)Object.keys(MD).forEach(d=>{const x=X(d),b=H-pb;s+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${pt}" y2="${b}" stroke="#A98BFF" stroke-opacity=".3" stroke-dasharray="2 4"/><path d="M${(x-5).toFixed(1)} ${b}L${(x+5).toFixed(1)} ${b}L${x.toFixed(1)} ${b-9}Z" fill="#A98BFF"/>`});
-  for(let i=1;i<pts.length;i++)s+=`<line x1="${X(pts[i-1].d).toFixed(1)}" y1="${Y(pts[i-1].v).toFixed(1)}" x2="${X(pts[i].d).toFixed(1)}" y2="${Y(pts[i].v).toFixed(1)}" stroke="${col(pts[i-1],pts[i])}" stroke-width="3" stroke-linecap="round"/>`;
-  if(o.trend&&!o.compact)s+=`<path d="${o.trend.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')}" fill="none" stroke="#6FA8FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
+  if(!PJ||!o.trend)for(let i=1;i<pts.length;i++)s+=`<line x1="${X(pts[i-1].d).toFixed(1)}" y1="${Y(pts[i-1].v).toFixed(1)}" x2="${X(pts[i].d).toFixed(1)}" y2="${Y(pts[i].v).toFixed(1)}" stroke="${col(pts[i-1],pts[i])}" stroke-width="3" stroke-linecap="round"/>`;
+  if(o.trend&&!o.compact)s+=`<path d="${o.trend.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')}" fill="none" stroke="#6FA8FF" stroke-width="${PJ?3.6:2.4}" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
   if(pts.length<=40&&!o.compact&&(!PJ||(X(pts.at(-1).d)-X(pts[0].d))/(pts.length-1)>=9))pts.forEach((p,i)=>{if(i<pts.length-1)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="#0F1218" stroke="${i?col(pts[i-1],p):'#9AA4BA'}" stroke-width="1.8"/>`});
   if(!o.compact)pts.forEach(p=>{if(p.n)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="7" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>`});
   const L=pts.at(-1);s+=`<circle cx="${X(L.d)}" cy="${Y(L.v)}" r="9" fill="#E4B45E" opacity=".18"/><circle cx="${X(L.d)}" cy="${Y(L.v)}" r="4.6" fill="#E4B45E"/>`;
@@ -557,7 +563,7 @@ function spark(pts,inv=false){
 }
 
 /* ---------- views ---------- */
-let tab='home',homeDate=today(),unlocked=false,curM=null,pState=null,cmp={a:null,b:null};
+let projView=false,tab='home',homeDate=today(),unlocked=false,curM=null,pState=null,cmp={a:null,b:null};
 const views={};
 const top=()=>`<div class="top"><div class="brand"><svg viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="none" stroke="#2F80FF" stroke-width="3"/><circle cx="14" cy="14" r="4" fill="#E4B45E"/></svg>Peso Ultra</div><button class="iconbtn" data-act="goalSheet" aria-label="Meta e perfil">${ic.target}</button></div>`;
 
@@ -653,7 +659,12 @@ views.analise=()=>{
   const[f,t]=rng('an'),u=unitL();
   const pts=S.weights.filter(w=>w.d>=f&&w.d<=t).map(w=>({d:w.d,v:toU(w.kg),n:w.n}));
   const g=S.settings.goal!=null?toU(S.settings.goal):null;
-  const PRJ=projFor(pts);
+  const PRJ=projFor(pts),showP=!!PRJ&&projView;
+  /* visão Projeção: mostra só o histórico recente (no máximo ~40% da largura) para a projeção não espremer os dados */
+  let dpts=pts;
+  if(showP){const from=dayNum(PRJ.d0)-Math.round(PRJ.ext*.67),tr=pts.filter(p=>dayNum(p.d)>=from);if(tr.length>=2)dpts=tr}
+  const projChips=PRJ?`<div class="chips" style="padding:0 0 10px"><button class="chip ${showP?'':'on'}" data-act="projView" data-v="0">Dados</button><button class="chip ${showP?'on':''}" data-act="projView" data-v="1">Projeção até a meta</button></div>`:'';
+  const projShort=PRJ&&!showP?`<p class="note" style="margin:8px 2px 0">Chegada prevista em <b>${fFull(PRJ.date)}</b>. Toque em <b>Projeção até a meta</b> para ver no gráfico.</p>`:'';
   const medPts=S.meds.filter(m=>m.d>=f&&m.d<=t).map(m=>({d:m.d,txt:`${medTxt(m)} · ${siteName(m.site)}`}));
   const inRange=medPts.filter(m=>pts.length>1&&m.d>=pts[0].d&&m.d<=pts.at(-1).d).length;
   const legend=[pts.some(p=>p.n)?'<span style="color:#fff">◯</span> dia com nota':'',inRange?'<span style="color:#A98BFF">▲</span> aplicação de medicação':''].filter(Boolean).join(' &nbsp;·&nbsp; ');
@@ -666,7 +677,7 @@ views.analise=()=>{
   const measCards=allM().map(m=>{const s=mSeries(m.id).filter(e=>e.d>=f&&e.d<=t);if(s.length<2)return '';const d=s.at(-1).v-s[0].v;return `<button class="card" style="width:100%;text-align:left;padding:16px 18px" data-act="openM" data-id="${m.id}"><div class="hd" style="margin-bottom:6px"><h2>${esc(m.name)}</h2>${chipD(d,1,'cm',d/s[0].v*100)}</div>${chartBox('m_'+m.id,s.map(e=>({d:e.d,v:e.v})),{h:96,compact:true,dec:1,unit:'cm'})}</button>`}).join('');
   return `${top()}<h1 class="h1">Evolução</h1><p class="sub">Toque ou passe a S Pen sobre o gráfico para ver cada dia.</p>
   ${perBar('an')}
-  <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${chartBox('w',pts,{h:230,dec:1,unit:u,goal:g,inv:gainGoal(),trend:trendPts(pts),meds:medPts,proj:PRJ})}${projNote(PRJ)}${legend?`<p class="note" style="margin:6px 2px 0">${legend}. Toque no gráfico para ver.</p>`:''}${pts.length>=4?`<p class="note" style="margin:8px 2px 0"><span style="color:#6FA8FF;font-weight:700">━</span> Linha azul: média móvel de 7 dias. Ela filtra as oscilações de água e comida e mostra a tendência real.</p>`:''}${stats}${trendNote(pts)}</section>
+  <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${projChips}${chartBox('w',dpts,{h:showP?270:230,dec:1,unit:u,goal:g,inv:gainGoal(),trend:trendPts(dpts),meds:medPts,proj:showP?PRJ:null})}${showP?projNote(PRJ):projShort}${legend?`<p class="note" style="margin:6px 2px 0">${legend}. Toque no gráfico para ver.</p>`:''}${pts.length>=4?`<p class="note" style="margin:8px 2px 0"><span style="color:#6FA8FF;font-weight:700">━</span> Linha azul: média móvel de 7 dias. Ela filtra as oscilações de água e comida e mostra a tendência real.</p>`:''}${stats}${trendNote(pts)}</section>
   ${medCard()}
   <section class="card"><h2>Padrões da semana</h2><p class="mut sm" style="margin:2px 0 4px">Variação média por dia (${u}/dia). Laranja sobe, verde desce.</p>
   <div class="wd">${order.map(i=>bars[i]).join('')}</div>
@@ -958,6 +969,7 @@ function demo(){
 /* ---------- actions ---------- */
 const A={};
 A.tab=el=>{tab=el.dataset.t;renderView()};
+A.projView=el=>{projView=el.dataset.v==='1';renderView(true)};
 A.closeSheet=closeSheet;
 A.unit=el=>{S.settings.unit=el.dataset.u;save();renderView(true)};
 A.step=el=>{const i=$('#wIn'),cur=num(i.value)??(S.weights.length?toU(S.weights.at(-1).kg):toU(70));i.value=nf(Math.round((cur+parseFloat(el.dataset.s))*10)/10,1)};
