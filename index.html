@@ -66,6 +66,7 @@ button{cursor:pointer;border:0;background:none;padding:0}
 body.pen .pen-hint{display:block}
 .wnote{width:100%;margin-top:16px;background:var(--s2);border:1px solid var(--line);border-radius:16px;padding:12px 14px;font-size:15px;color:var(--tx);outline:0}
 .wnote:focus{border-color:rgba(228,180,94,.5)}
+.wbowel{width:100%;margin-top:16px;background:var(--s2);border:1px solid var(--line);border-radius:16px;padding:12px 14px;font-size:15px;color:var(--tx);outline:0}
 .ntags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ntags button{padding:6px 11px;border-radius:999px;background:var(--s2);color:var(--tx2);font-size:12.5px;font-weight:600}
 .nt{color:var(--gold2)!important}
@@ -261,9 +262,9 @@ const unb64=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.lengt
 
 /* ---------- state ---------- */
 const KEY='pesoultra.v1';
-const blank=()=>({v:1,settings:{unit:'kg',goal:null,startKg:null,age:null,lock:null,lastBackup:null},weights:[],meds:[],measures:{custom:[],entries:{}}});
+const blank=()=>({v:1,settings:{unit:'kg',goal:null,startKg:null,age:null,lock:null,lastBackup:null},weights:[],meds:[],bowel:{},measures:{custom:[],entries:{}}});
 let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
-{const b=blank();S=Object.assign(b,S||{});S.settings=Object.assign(blank().settings,S.settings||{});S.measures=S.measures||{};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};S.weights=S.weights||[];S.meds=Array.isArray(S.meds)?S.meds:[];}
+{const b=blank();S=Object.assign(b,S||{});S.settings=Object.assign(blank().settings,S.settings||{});S.measures=S.measures||{};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};S.weights=S.weights||[];S.meds=Array.isArray(S.meds)?S.meds:[];S.bowel=S.bowel&&typeof S.bowel==='object'?S.bowel:{};}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 let PH=[];
 const DB={db:null,ok:true,
@@ -317,6 +318,7 @@ function weekRows(weeks,f,t){
 /* n: nota opcional. undefined mantém a nota que já existia; '' apaga */
 function setWeight(d,kg,n){const old=S.weights.find(w=>w.d===d),note=n===undefined?(old&&old.n):n;S.weights=S.weights.filter(w=>w.d!==d);const r={d,kg};if(note)r.n=note;S.weights.push(r);S.weights.sort((a,b)=>a.d<b.d?-1:1);save()}
 const NOTE_TAGS=['Comi tarde','Treino pesado','Dormi mal','Fora da dieta','Muito sal','Bebi álcool'];
+const BOWEL_OPTS=[['normal','Evacuação normal'],['preso','Constipação (intestino preso)'],['diarreia','Diarreia'],['nao','Não evacuei']];
 const cleanNote=s=>String(s||'').replace(/\s+/g,' ').trim().slice(0,80);
 function addMeasure(id,d,v){
   const list=(S.measures.entries[id]||[]).filter(e=>e.d!==d);
@@ -630,6 +632,7 @@ views.home=()=>{
   <div class="seg" role="group" aria-label="Unidade"><button class="${u==='kg'?'on':''}" data-act="unit" data-u="kg">kg</button><button class="${u==='lb'?'on':''}" data-act="unit" data-u="lb">lb</button></div></div>
   <div class="wrow"><button class="step" data-act="step" data-s="-0.1" aria-label="Diminuir 0,1">\u2212</button><input class="wbig" id="wIn" inputmode="decimal" autocomplete="off" placeholder="0,0" value="${pre!=null?nf(toU(pre),1):''}" aria-label="Peso em ${u}"><button class="step" data-act="step" data-s="0.1" aria-label="Aumentar 0,1">+</button></div>
   <div class="wunit">${u}</div><p class="pen-hint">S Pen detectada: escreva o valor à mão direto no campo.</p>
+  <select class="wbowel" id="wBowel" aria-label="Como foi seu intestino">${[['','Intestino: sem registro']].concat(BOWEL_OPTS).map(([k,t])=>`<option value="${k}"${(S.bowel[homeDate]||'')===k?' selected':''}>${esc(t)}</option>`).join('')}</select>
   <input class="wnote" id="wNote" maxlength="80" autocomplete="off" placeholder="Nota do dia (opcional)" aria-label="Nota do dia" value="${esc(ex&&ex.n||'')}">
   <div class="ntags">${NOTE_TAGS.map(t=>`<button data-act="noteTag" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>
   <div style="margin-top:18px"><button class="btn" data-act="reg">${isT?'Registrar peso de hoje':'Salvar peso de '+fShort(homeDate)}</button></div>${dl2}
@@ -864,9 +867,9 @@ function backupHTML(){
   <p class="note" style="margin:12px 2px 0">${persisted===true?'Armazenamento protegido: o Android não apaga os dados do app por falta de espaço.':persisted===false?'O Android pode apagar os dados do app se faltar espaço no aparelho. Por isso, faça backup com frequência.':''}</p>
   <h2 style="margin:6px 0 8px;font-size:16px">Restaurar</h2><p class="note" style="margin:0 0 10px">Escolha um arquivo .json exportado pelo Peso Ultra. Backups criptografados pedem a senha.</p><label class="btn ghost ovl">Escolher arquivo de backup<input type="file" class="rfile" accept=".json,application/json" aria-label="Escolher arquivo de backup"></label>`);
 }
-function payload(withPh){const s={...S.settings};delete s.lock;return {settings:s,weights:S.weights,meds:S.meds,measures:S.measures,photos:withPh?PH:undefined,exportedAt:new Date().toISOString()}}
+function payload(withPh){const s={...S.settings};delete s.lock;return {settings:s,weights:S.weights,meds:S.meds,bowel:S.bowel,measures:S.measures,photos:withPh?PH:undefined,exportedAt:new Date().toISOString()}}
 async function applyPayload(p){
-  S.weights=Array.isArray(p.weights)?p.weights:[];S.meds=Array.isArray(p.meds)?p.meds:[];S.measures=p.measures||{custom:[],entries:{}};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};
+  S.weights=Array.isArray(p.weights)?p.weights:[];S.bowel=p.bowel&&typeof p.bowel==='object'?p.bowel:{};S.meds=Array.isArray(p.meds)?p.meds:[];S.measures=p.measures||{custom:[],entries:{}};S.measures.custom=S.measures.custom||[];S.measures.entries=S.measures.entries||{};
   const lock=S.settings.lock;S.settings=Object.assign(blank().settings,p.settings||{});S.settings.lock=lock;save();
   if(Array.isArray(p.photos)){await DB.clear();PH=p.photos;for(const x of PH)await DB.put(x);sortPH()}
 }
@@ -978,6 +981,7 @@ A.reg=()=>{
   const kg=fromU(v);if(kg<20||kg>400){toast('Esse valor parece fora do normal');return}
   const d=homeDate,prev=S.weights.filter(w=>w.d<d).at(-1),before=msIds(),others=S.weights.filter(w=>w.d!==d).map(w=>w.kg);
   setWeight(d,kg,cleanNote($('#wNote')&&$('#wNote').value));
+  {const bw=$('#wBowel')?$('#wBowel').value:'';if(bw)S.bowel[d]=bw;else delete S.bowel[d];save()}
   toast(prev?`Registrado: ${nf(toU(kg))} ${unitL()} (${sg(toU(kg-prev.kg))} vs anterior)`:`Primeiro peso registrado: ${nf(toU(kg))} ${unitL()}`);
   const rec=S.settings.goal!=null&&others.length>=5&&d>=S.weights.at(-1).d?(gainGoal()?(kg>Math.max(...others)?'Maior peso registrado até agora':''):(kg<Math.min(...others)?'Menor peso registrado até agora':'')):'';
   announce(before,rec);
@@ -1134,6 +1138,7 @@ A.msSheet=()=>openSheet(msHTML());
 A.expCSV=async()=>{
   const q=v=>`"${String(v).replace(/"/g,'""')}"`,rows=[['tipo','data','item','valor','unidade','nota']];
   S.weights.forEach(w=>rows.push(['peso',w.d,'Peso',nf(w.kg,1),'kg',w.n||'']));
+  Object.keys(S.bowel).sort().forEach(d=>{const l=BOWEL_OPTS.find(o=>o[0]===S.bowel[d]);rows.push(['intestino',d,'Intestino',l?l[1]:S.bowel[d],'','']);});
   allM().forEach(m=>mSeries(m.id).forEach(e=>rows.push(['medida',e.d,m.name,nf(e.v,1),'cm'])));
   medSorted().slice().reverse().forEach(m=>rows.push(['medicacao',m.d,`${m.med} (${siteName(m.site)})`,m.dose,'mg']));
   rows.forEach(r=>{while(r.length<6)r.push('')});
