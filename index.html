@@ -81,6 +81,21 @@ body.pen .pen-hint{display:block}
 .bC{background:#712B13;color:#F5C4B3}.bC.bn{background:#993C1D;color:#fff}
 .bX{background:var(--s3);color:var(--tx2)}.bX.bn{background:#444441;color:#fff}
 .bform{margin-bottom:12px}
+.chip .ic{width:14px;height:14px;vertical-align:-2px;margin-right:5px}
+.bgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.bgrid .h{text-align:center;font-size:11px;color:var(--tx3);font-weight:600}
+.bgrid .q{aspect-ratio:1;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.bgrid .q.e{border:1px dashed rgba(255,255,255,.14)}
+.bgrid .q.f{visibility:hidden}
+.bgrid .q.t{box-shadow:0 0 0 2px var(--gold)}
+.blg{display:flex;flex-wrap:wrap;gap:4px 12px;margin:10px 0 0;font-size:12px;color:var(--tx2)}
+.blg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.bbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+.bbar>span{width:60px;flex:none;color:var(--tx2)}
+.bbar div{flex:1;display:flex;height:24px;border-radius:7px;overflow:hidden;background:var(--s2)}
+.bbar div b{display:grid;place-items:center;font-size:11.5px;color:#fff;font-weight:700}
+.bsec{background:var(--s2);border-radius:18px;padding:14px;margin:0 0 14px}
+.bsec h4{margin:0 0 10px;font-size:15px;font-weight:600}
 .ntags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ntags button{padding:6px 11px;border-radius:999px;background:var(--s2);color:var(--tx2);font-size:12.5px;font-weight:600}
 .nt{color:var(--gold2)!important}
@@ -516,7 +531,8 @@ function chartBox(key,pts,o={}){CH[key]={pts,o};return `<div class="chart" data-
 function drawCharts(){$$('[data-ch]').forEach(el=>{const c=CH[el.dataset.ch];if(c)drawChart(el,c.pts,c.o)})}
 function drawChart(el,pts,o){
   if(pts.length<2){el.style.height='auto';el.innerHTML='<div class="empty">Registre ao menos 2 valores no período para ver o gráfico.</div>';return}
-  const W=el.clientWidth||320,H=o.h||220,pl=o.compact?6:38,pr=10,pt=14,pb=o.compact?8:26,dec=o.dec??1,inv=!!o.inv;
+  const BWP=!o.compact&&!(o.proj)&&o.bowel&&o.bowel.length?o.bowel:null;
+  const W=el.clientWidth||320,H=(o.h||220)+(BWP?20:0),pl=o.compact?6:38,pr=10,pt=14,pb=o.compact?8:(BWP?46:26),dec=o.dec??1,inv=!!o.inv;
   const PJ=o.proj&&!o.compact?o.proj:null;
   const t0=dayNum(pts[0].d),t1=dayNum(pts.at(-1).d),span=Math.max(1,t1-t0+(PJ?PJ.ext:0));
   const vals=pts.map(p=>p.v);if(o.goal!=null)vals.push(o.goal);if(o.trend)o.trend.forEach(p=>vals.push(p.v));if(PJ)vals.push(PJ.vEnd);
@@ -548,12 +564,16 @@ function drawChart(el,pts,o){
   if(o.trend&&!o.compact)s+=`<path d="${o.trend.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')}" fill="none" stroke="#6FA8FF" stroke-width="${PJ?3.6:2.4}" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>`;
   if(pts.length<=40&&!o.compact&&(!PJ||(X(pts.at(-1).d)-X(pts[0].d))/(pts.length-1)>=9))pts.forEach((p,i)=>{if(i<pts.length-1)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="#0F1218" stroke="${i?col(pts[i-1],p):'#9AA4BA'}" stroke-width="1.8"/>`});
   if(!o.compact)pts.forEach(p=>{if(p.n)s+=`<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="7" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>`});
+  const BW={};if(BWP){const yb=H-pb+13,pd=(W-pl-pr)/span,br=pd>=13?6.5:Math.max(2.4,pd/2-.4);BWP.forEach(b=>{const k=dayNum(b.d);if(k<t0||k>t1)return;BW[b.d]=b;const x=X(b.d);s+=`<circle cx="${x.toFixed(1)}" cy="${yb}" r="${br.toFixed(1)}" fill="${b.col}"/>${b.n!==''&&pd>=13?`<text x="${x.toFixed(1)}" y="${yb+3.5}" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">${b.n}</text>`:''}`})}
   const L=pts.at(-1);s+=`<circle cx="${X(L.d)}" cy="${Y(L.v)}" r="9" fill="#E4B45E" opacity=".18"/><circle cx="${X(L.d)}" cy="${Y(L.v)}" r="4.6" fill="#E4B45E"/>`;
   s+=`<g class="cur" style="display:none"><line y1="${pt}" y2="${H-pb}" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 4"/><circle r="5.5" fill="#fff" stroke="#2F80FF" stroke-width="3"/></g></svg><div class="tip"></div>`;
   el.innerHTML=s;
   const svg=el.querySelector('svg'),tip=el.querySelector('.tip'),cur=el.querySelector('.cur');
   const show=i=>{const p=pts[i],x=X(p.d),y=Y(p.v);cur.style.display='';cur.querySelector('circle').style.display='';cur.querySelector('line').setAttribute('x1',x);cur.querySelector('line').setAttribute('x2',x);cur.querySelector('circle').setAttribute('cx',x);cur.querySelector('circle').setAttribute('cy',y);
-    const pr2=pts[i-1];tip.innerHTML=`<span class="mut">${fFull(p.d)}</span><br><b>${nf(p.v,dec)}${o.unit?' '+o.unit:''}</b>${pr2?` <span class="${((p.v<pr2.v)!==inv)?'dn-t':'up-t'}">${sg(p.v-pr2.v,dec)}</span>`:''}${o.trend?`<br><span class="mut">média 7 dias: ${nf(o.trend[i].v,dec)}</span>`:''}${p.n?`<br><span class="nt">${wrapT(p.n)}</span>`:''}${(MD[p.d]||[]).map(t=>`<br><span style="color:#A98BFF">▲</span> ${wrapT(t)}`).join('')}`;
+    const pr2=pts[i-1];tip.innerHTML=`<span class="mut">${fFull(p.d)}</span><br><b>${nf(p.v,dec)}${o.unit?' '+o.unit:''}</b>${pr2?` <span class="${((p.v<pr2.v)!==inv)?'dn-t':'up-t'}">${sg(p.v-pr2.v,dec)}</span>`:''}${o.trend?`<br><span class="mut">média 7 dias: ${nf(o.trend[i].v,dec)}</span>`:''}${p.n?`<br><span class="nt">${wrapT(p.n)}</span>`:''}${(MD[p.d]||[]).map(t=>`<br><span style="color:#A98BFF">▲</span> ${wrapT(t)}`).join('')}${BW[p.d]?`<br><span style="color:${BW[p.d].col}">●</span> ${wrapT('Intestino: '+BW[p.d].txt)}`:''}`;
+    tip.style.display='block';const tw=tip.offsetWidth;tip.style.left=clamp(x-tw/2,0,W-tw)+'px'};
+  const showBw=d=>{const x=X(d),ln=cur.querySelector('line');cur.style.display='';ln.setAttribute('x1',x);ln.setAttribute('x2',x);cur.querySelector('circle').style.display='none';
+    tip.innerHTML=`<span class="mut">${fFull(d)}</span><br><span style="color:${BW[d].col}">●</span> ${wrapT('Intestino: '+BW[d].txt)}`;
     tip.style.display='block';const tw=tip.offsetWidth;tip.style.left=clamp(x-tw/2,0,W-tw)+'px'};
   const showMed=d=>{const x=X(d),ln=cur.querySelector('line');cur.style.display='';ln.setAttribute('x1',x);ln.setAttribute('x2',x);cur.querySelector('circle').style.display='none';
     tip.innerHTML=`<span class="mut">${fFull(d)}</span>${MD[d].map(t=>`<br><span style="color:#A98BFF">▲</span> ${wrapT(t)}`).join('')}`;
@@ -562,7 +582,8 @@ function drawChart(el,pts,o){
     cur.style.display='';ln.setAttribute('x1',cx);ln.setAttribute('x2',cx);cur.querySelector('circle').style.display='none';
     tip.innerHTML=`<span class="mut">${fFull(d)}</span><br><span class="mut">projeção</span> <b>${nf(v,dec)}${o.unit?' '+o.unit:''}</b>`;
     tip.style.display='block';const tw=tip.offsetWidth;tip.style.left=clamp(cx-tw/2,0,W-tw)+'px'};
-  const move=e=>{const r=svg.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W;
+  const move=e=>{const r=svg.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,yy=(e.clientY-r.top)/r.height*H;
+    if(BWP&&yy>H-pb){let bb=null,bbd=1e9;Object.keys(BW).forEach(d=>{const dd=Math.abs(X(d)-x);if(dd<bbd){bbd=dd;bb=d}});if(bb&&bbd<14){showBw(bb);return}}
     if(PJ&&x>X(PJ.d0)+8){showProj(x);return}
     let bi=0,bd=1e9;pts.forEach((p,i)=>{const d=Math.abs(X(p.d)-x);if(d<bd){bd=d;bi=i}});
     let bm=null,bmd=1e9;Object.keys(MD).forEach(d=>{const dd=Math.abs(X(d)-x);if(dd<bmd){bmd=dd;bm=d}});
@@ -579,7 +600,7 @@ function spark(pts,inv=false){
 }
 
 /* ---------- views ---------- */
-let projView=false,tab='home',homeDate=today(),unlocked=false,curM=null,pState=null,cmp={a:null,b:null};
+let projView=false,bowView=false,tab='home',homeDate=today(),unlocked=false,curM=null,pState=null,cmp={a:null,b:null};
 const views={};
 const top=()=>`<div class="top"><div class="brand"><svg viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="none" stroke="#2F80FF" stroke-width="3"/><circle cx="14" cy="14" r="4" fill="#E4B45E"/></svg>Peso Ultra</div><button class="iconbtn" data-act="goalSheet" aria-label="Meta e perfil">${ic.target}</button></div>`;
 
@@ -679,11 +700,13 @@ views.analise=()=>{
   /* visão Projeção: mostra só o histórico recente (no máximo ~40% da largura) para a projeção não espremer os dados */
   let dpts=pts;
   if(showP){const from=dayNum(PRJ.d0)-Math.round(PRJ.ext*.67),tr=pts.filter(p=>dayNum(p.d)>=from);if(tr.length>=2)dpts=tr}
-  const projChips=PRJ?`<div class="chips" style="padding:0 0 10px"><button class="chip ${showP?'':'on'}" data-act="projView" data-v="0">Dados</button><button class="chip ${showP?'on':''}" data-act="projView" data-v="1">Projeção até a meta</button></div>`:'';
+  const bowOn=bowView&&!!S.settings.lock&&unlocked,bwChip=bowHas()&&!showP?`<button class="chip ${bowOn?'on':''}" data-act="bowView">${bowOn?'':ic.lock}Intestino</button>`:'';
+  const bwPts=bowOn&&!showP?bowPts(f,t):null;
+  const projChips=PRJ||bwChip?`<div class="chips" style="padding:0 0 10px;flex-wrap:wrap">${PRJ?`<button class="chip ${showP?'':'on'}" data-act="projView" data-v="0">Dados</button><button class="chip ${showP?'on':''}" data-act="projView" data-v="1">Projeção até a meta</button>`:''}${bwChip}</div>`:'';
   const projShort=PRJ&&!showP?`<p class="note" style="margin:8px 2px 0">Chegada prevista em <b>${fFull(PRJ.date)}</b>. Toque em <b>Projeção até a meta</b> para ver no gráfico.</p>`:'';
   const medPts=S.meds.filter(m=>m.d>=f&&m.d<=t).map(m=>({d:m.d,txt:`${medTxt(m)} · ${siteName(m.site)}`}));
   const inRange=medPts.filter(m=>pts.length>1&&m.d>=pts[0].d&&m.d<=pts.at(-1).d).length;
-  const legend=[pts.some(p=>p.n)?'<span style="color:#fff">◯</span> dia com nota':'',inRange?'<span style="color:#A98BFF">▲</span> aplicação de medicação':''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+  const legend=[pts.some(p=>p.n)?'<span style="color:#fff">◯</span> dia com nota':'',inRange?'<span style="color:#A98BFF">▲</span> aplicação de medicação':'',bwPts&&bwPts.length?'<span style="color:#3B6D11">●</span> intestino (tipo de Bristol)':''].filter(Boolean).join(' &nbsp;·&nbsp; ');
   let stats='';
   if(pts.length){const a=pts[0].v,b=pts.at(-1).v,sl=slope(pts);stats=`<div class="stats"><div><small>Início</small><b>${nf(a)}</b></div><div><small>Atual</small><b>${nf(b)}</b></div><div><small>Variação</small><b class="${((b-a)<0)!==gainGoal()?'dn-t':(b-a)===0?'':'up-t'}">${sg(b-a)} ${u}</b></div></div>${sl!=null&&pts.length>2?`<p class="note" style="margin:10px 2px 0">Ritmo médio no período: <b>${sg(sl*7,2)} ${u}/semana</b></p>`:''}`}
   const P=patterns(f,t),WKS=weekRows(P.weeks,f,t);
@@ -693,7 +716,7 @@ views.analise=()=>{
   const measCards=allM().map(m=>{const s=mSeries(m.id).filter(e=>e.d>=f&&e.d<=t);if(s.length<2)return '';const d=s.at(-1).v-s[0].v;return `<button class="card" style="width:100%;text-align:left;padding:16px 18px" data-act="openM" data-id="${m.id}"><div class="hd" style="margin-bottom:6px"><h2>${esc(m.name)}</h2>${chipD(d,1,'cm',d/s[0].v*100)}</div>${chartBox('m_'+m.id,s.map(e=>({d:e.d,v:e.v})),{h:96,compact:true,dec:1,unit:'cm'})}</button>`}).join('');
   return `${top()}<h1 class="h1">Evolução</h1><p class="sub">Toque ou passe a S Pen sobre o gráfico para ver cada dia.</p>
   ${perBar('an')}
-  <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${projChips}${chartBox('w',dpts,{h:showP?270:230,dec:1,unit:u,goal:g,inv:gainGoal(),trend:trendPts(dpts),meds:medPts,proj:showP?PRJ:null})}${showP?projNote(PRJ):projShort}${legend?`<p class="note" style="margin:6px 2px 0">${legend}. Toque no gráfico para ver.</p>`:''}${pts.length>=4?`<p class="note" style="margin:8px 2px 0"><span style="color:#6FA8FF;font-weight:700">━</span> Linha azul: média móvel de 7 dias. Ela filtra as oscilações de água e comida e mostra a tendência real.</p>`:''}${stats}${trendNote(pts)}</section>
+  <section class="card"><div class="hd"><h2>Peso</h2><button class="link" data-act="histSheet">Editar registros</button></div>${projChips}${chartBox('w',dpts,{h:showP?270:230,dec:1,unit:u,goal:g,inv:gainGoal(),trend:trendPts(dpts),meds:medPts,proj:showP?PRJ:null,bowel:bwPts})}${showP?projNote(PRJ):projShort}${legend?`<p class="note" style="margin:6px 2px 0">${legend}. Toque no gráfico para ver.</p>`:''}${pts.length>=4?`<p class="note" style="margin:8px 2px 0"><span style="color:#6FA8FF;font-weight:700">━</span> Linha azul: média móvel de 7 dias. Ela filtra as oscilações de água e comida e mostra a tendência real.</p>`:''}${stats}${trendNote(pts)}</section>
   ${medCard()}
   <section class="card"><h2>Padrões da semana</h2><p class="mut sm" style="margin:2px 0 4px">Variação média por dia (${u}/dia). Laranja sobe, verde desce.</p>
   <div class="wd">${order.map(i=>bars[i]).join('')}</div>
@@ -847,11 +870,38 @@ function bowCard(){
   <div class="dl"><button class="link" data-act="bowHist">Histórico intestinal</button><span>·</span><button class="link" data-act="bowLock">Bloquear</button></div></section>`;
 }
 function bowRefresh(){const c=$('#bowCard');if(c)c.outerHTML=bowCard()}
+
+const BCOL={A:'#BA7517',G:'#3B6D11',C:'#993C1D',X:'#5F5E5A'};
+function bowGrid(){
+  const td=today(),dow=(parse(td).getDay()+6)%7,st=addDays(td,-dow-21),cells=[];
+  for(let i=0;i<28;i++){const d=addDays(st,i);if(d>td){cells.push('<div class="q f"></div>');continue}const r=bowGet(d),tc=d===td?' t':'';
+    cells.push(r?`<div class="q${tc}" style="background:${BCOL[bowCls(r)]}" title="${esc(fFull(d)+': '+bowTxt(r))}">${r.b||(r.x===0?'0':'·')}</div>`:`<div class="q e${tc}" title="${esc(fFull(d))}"></div>`)}
+  return `<div class="bsec"><h4>Últimas 4 semanas</h4><div class="bgrid">${['S','T','Q','Q','S','S','D'].map(x=>`<div class="h">${x}</div>`).join('')}${cells.join('')}</div>
+  <div class="blg"><span><i style="background:${BCOL.G}"></i>Ideal</span><span><i style="background:${BCOL.A}"></i>Constipação</span><span><i style="background:${BCOL.C}"></i>Solto</span><span><i style="border:1px dashed rgba(255,255,255,.3)"></i>Sem registro</span></div></div>`;
+}
+/* dias depois da aplicação: conta só registros com tipo de Bristol */
+function bowMedStats(f='0000-01-01',t='9999-12-31'){
+  const apps=S.meds.map(m=>m.d).filter(d=>d<=t).sort();if(apps.length<2)return null;
+  const B=[[0,1,'Dia 0–1'],[2,3,'Dia 2–3'],[4,6,'Dia 4–6']],cnt=B.map(()=>({G:0,A:0,C:0}));let n=0;
+  Object.keys(S.bowel).forEach(d=>{if(d<f||d>t)return;const r=bowGet(d);if(!r||!r.b)return;const a=apps.filter(x=>x<=d).at(-1);if(!a)return;const k=dayNum(d)-dayNum(a);const i=B.findIndex(b=>k>=b[0]&&k<=b[1]);if(i<0)return;cnt[i][BRIS[r.b-1][3]]++;n++});
+  const used=apps.filter(a=>a>=f).length||apps.length;if(n<8)return null;
+  const rows=B.map((b,i)=>({l:b[2],...cnt[i],tot:cnt[i].G+cnt[i].A+cnt[i].C}));
+  const share=(r,k)=>r.tot?r[k]/r.tot:0,ok=rows.filter(r=>r.tot>=2);let msg='Sem diferença clara entre os dias depois da aplicação.';
+  for(const [k,txt] of [['A','a constipação aparece mais'],['C','o intestino fica mais solto']]){const s=ok.map(r=>share(r,k)),mxv=Math.max(...s,0),i=s.indexOf(mxv),rest=s.filter((_,j)=>j!==i);if(ok.length>=2&&mxv>=.3&&mxv-Math.max(...rest)>=.15){msg=`Nos ${ok[i].l.replace('Dia','dias').toLowerCase()} ${txt}.`;break}}
+  return {rows,n,apps:used,msg};
+}
+function bowMedHTML(){
+  const s=bowMedStats();
+  if(!s)return S.meds.length?`<div class="bsec"><h4>Depois da aplicação</h4><p class="note" style="margin:0">Aparece quando houver pelo menos 2 aplicações e 8 registros com tipo de Bristol nos 6 dias depois delas.</p></div>`:'';
+  return `<div class="bsec"><h4>Depois da aplicação</h4>${s.rows.map(r=>`<div class="bbar"><span>${r.l}</span><div>${r.tot?[['G',r.G],['A',r.A],['C',r.C]].filter(x=>x[1]).map(([k,v])=>`<b style="width:${v/r.tot*100}%;background:${BCOL[k]}">${v}</b>`).join(''):''}</div></div>`).join('')}
+  <p class="note" style="margin:6px 0 0">Baseado em ${s.n} registros com tipo de Bristol. ${esc(s.msg)}</p></div>`;
+}
+function bowPts(f,t){return Object.keys(S.bowel).filter(d=>d>=f&&d<=t).sort().map(d=>{const r=bowGet(d),c=bowCls(r);return {d,n:r.b||(r.x===0?'0':''),c,col:BCOL[c],txt:bowTxt(r)}})}
 function bowHistHTML(){
   const ds=Object.keys(S.bowel).sort().reverse();
   const cnt={A:0,G:0,C:0},last30=ds.filter(d=>dayNum(today())-dayNum(d)<30);last30.forEach(d=>{const c=bowCls(bowGet(d));if(cnt[c]!=null)cnt[c]++});
   const sum=last30.length?`<p class="note" style="margin:0 0 10px">Últimos 30 dias: ${last30.length} ${last30.length===1?'registro':'registros'} · <span class="btag bG">${cnt.G} ideal</span> <span class="btag bA">${cnt.A} constipação</span> <span class="btag bC">${cnt.C} solto</span></p>`:'';
-  return sh('Histórico intestinal',sum+(ds.length?ds.map(d=>{const r=bowGet(d),c=bowCls(r);return `<div class="hist"><span class="bn b${c}">${r.b||'–'}</span><div class="t"><b>${cap(fmt(d,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</b><span>${esc(bowTxt(r))}</span>${r.o?`<span class="nt">${esc(r.o)}</span>`:''}</div><button class="mini" data-act="bowEdit" data-d="${d}" aria-label="Editar">${ic.pen}</button><button class="mini" data-act="bowDel" data-d="${d}" aria-label="Excluir">${ic.trash}</button></div>`}).join(''):'<div class="empty">Sem registros ainda.</div>'));
+  return sh('Histórico intestinal',sum+bowGrid()+bowMedHTML()+(ds.length?ds.map(d=>{const r=bowGet(d),c=bowCls(r);return `<div class="hist"><span class="bn b${c}">${r.b||'–'}</span><div class="t"><b>${cap(fmt(d,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</b><span>${esc(bowTxt(r))}</span>${r.o?`<span class="nt">${esc(r.o)}</span>`:''}</div><button class="mini" data-act="bowEdit" data-d="${d}" aria-label="Editar">${ic.pen}</button><button class="mini" data-act="bowDel" data-d="${d}" aria-label="Excluir">${ic.trash}</button></div>`}).join(''):'<div class="empty">Sem registros ainda.</div>'));
 }
 
 /* ---------- medicação ---------- */
@@ -926,15 +976,16 @@ const PC={navy:[9,14,30],blue:[47,128,255],gold:[228,180,94],green:[18,150,104],
 const pt_=s=>String(s).replace(/[\u2212\u2013\u2014]/g,'-').replace(/[\u00b7\u2022]/g,'|').replace(/\u2248/g,'~').replace(/\u2192/g,'>');
 function reportHTML(){
   return sh('Relatório em PDF',`<p class="note" style="margin:0 0 10px">Escolha o período do relatório.</p><div id="repPer">${perBar('rep')}</div>
-  <div class="form"><label class="chk"><input type="checkbox" id="rPh" ${PER.rep.photos?'checked':''}> Incluir fotos de progresso do período</label><button class="btn" data-act="genPDF">Gerar PDF</button></div>`);
+  <div class="form"><label class="chk"><input type="checkbox" id="rPh" ${PER.rep.photos?'checked':''}> Incluir fotos de progresso do período</label>${bowHas()&&S.settings.lock?`<label class="chk"><input type="checkbox" id="rBw" ${PER.rep.bowel!==false?'checked':''}> Incluir registro intestinal (pede PIN)</label>`:''}<button class="btn" data-act="genPDF">Gerar PDF</button></div>`);
 }
 async function genPDF(){
   if(!window.jspdf){toast('Biblioteca de PDF não carregou. Verifique a conexão.');return}
   const[f,t]=rng('rep');let wantPh=$('#rPh')?.checked;
+  const wantBw=!!($('#rBw')?.checked)&&!!S.settings.lock,BWR=wantBw?bowPts(f,t):[];
   const W=S.weights.filter(x=>x.d>=f&&x.d<=t);
   const hasM=allM().some(m=>mSeries(m.id).some(e=>e.d>=f&&e.d<=t));
-  if(!W.length&&!hasM){toast('Sem registros no período escolhido');return}
-  if(wantPh&&S.settings.lock&&!unlocked){closeSheet();const ok=await needUnlock();if(!ok)return;closeSheet();wantPh=true}
+  if(!W.length&&!hasM&&!BWR.length){toast('Sem registros no período escolhido');return}
+  if((wantPh||wantBw)&&S.settings.lock&&!unlocked){closeSheet();const ok=await needUnlock();if(!ok)return;closeSheet()}
   toast('Gerando PDF...');await new Promise(r=>setTimeout(r,60));
   const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),PW=210,PHt=297,M=14,C=PC,u=unitL();
   let y=M;
@@ -958,7 +1009,7 @@ async function genPDF(){
   tiles.forEach((tl,i)=>{const x=M+(i%4)*(tw+4),yy=y+Math.floor(i/4)*24;doc.setFillColor(...C.card);doc.roundedRect(x,yy,tw,20,3,3,'F');font(7.5);col(C.mut);T(tl[0],x+4,yy+7);font(12.5,1);col(tl[2]);T(tl[1],x+4,yy+15.5)});
   y+=Math.ceil(tiles.length/4)*24+4;
   // weight chart
-  if(W.length){sec('Evolução do peso',80);pdfChart(doc,M,y,PW-2*M,62,W.map(x=>({d:x.d,v:toU(x.kg)})),{goal:e?toU(e.g):null,inv:gainGoal(),dec:1});y+=68;font(8);col(C.mut);T('Linha verde: queda | laranja: aumento | tracejado dourado: meta',M,y);y+=8}
+  if(W.length){sec('Evolução do peso',80);pdfChart(doc,M,y,PW-2*M,62,W.map(x=>({d:x.d,v:toU(x.kg)})),{goal:e?toU(e.g):null,inv:gainGoal(),dec:1,bowel:BWR.length?BWR:null});y+=68;font(8);col(C.mut);T('Linha verde: queda | laranja: aumento | tracejado dourado: meta'+(BWR.length?' | bolinhas embaixo: intestino (tipo de Bristol)':''),M,y);y+=8}
   // goal
   if(e){sec('Meta e estimativa');font(10);col(C.ink);const ln=[`Meta: ${nf(toU(e.g))} ${u}   |   Peso atual: ${nf(toU(e.cur))} ${u}   |   Restante: ${nf(toU(e.remain))} ${u}   |   Progresso: ${Math.round(e.pct)}%`,e.reached?'Meta atingida.':`Estimativa: ${e.weeks} semanas (${e.days} dias). Chegada prevista em ${fFull(e.date)}.`,e.reached?'':`Ritmo considerado: ${nf(toU(e.rate*7),2)} ${u}/semana (${e.src==='real'?'seu ritmo real dos últimos 35 dias':'ritmo padrão ajustado pela idade'}).`].filter(Boolean);ln.forEach(l=>{doc.splitTextToSize(pt_(l),PW-2*M).forEach(s=>{need(6);T(s,M,y);y+=5.4})});y+=4}
   // patterns
@@ -976,6 +1027,38 @@ async function genPDF(){
     const cr=mrows.filter(r=>r.s.length>1);
     if(cr.length){need(12);font(10,1);col(C.ink);T('Gráficos individuais',M,y);y+=5;const cw=(PW-2*M-6)/2;
       for(let i=0;i<cr.length;i+=2){need(48);[0,1].forEach(k=>{const r=cr[i+k];if(!r)return;const x=M+k*(cw+6);font(8.5,1);col(C.ink);T(r.m.name,x,y+3);pdfChart(doc,x,y+5,cw,34,r.s.map(e=>({d:e.d,v:e.v})),{dec:1,small:true})});y+=44}}}
+  // registro intestinal
+  if(BWR.length){
+    const BC={A:[186,117,23],G:[59,109,17],C:[153,60,29],X:[95,94,90]};
+    doc.addPage();y=M;sec('Registro intestinal',30);
+    const cn={G:0,A:0,C:0,X:0};BWR.forEach(b=>cn[b.c]++);
+    font(10);col(C.ink);T(`${BWR.length} ${BWR.length===1?'registro':'registros'} no período: ${cn.G} ideal (tipos 3-4), ${cn.A} constipação (tipos 1-2), ${cn.C} solto (tipos 5-7)${cn.X?`, ${cn.X} sem tipo`:''}.`,M,y);y+=8;
+    // grade semanal (até 12 semanas, segunda a domingo)
+    const endD=t>today()?today():t,lastD=BWR.at(-1).d<endD?endD:BWR.at(-1).d,dw=(parse(lastD).getDay()+6)%7,wEnd=addDays(lastD,6-dw);
+    let wSt=addDays(wEnd,-83);const fd=BWR[0].d;if(fd>wSt){wSt=addDays(fd,-((parse(fd).getDay()+6)%7))}
+    const nW=Math.round((dayNum(wEnd)-dayNum(wSt)+1)/7),cs=8.4,gx=M+30;
+    need(nW*(cs+1.4)+16);font(10,1);col(C.ink);T(nW>1?`Últimas ${nW} semanas do período`:'Semana',M,y);y+=6;
+    font(7.5);col(C.mut);['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].forEach((h,i)=>T(h,gx+i*(cs+1.4)+cs/2,y,{align:'center'}));y+=2;
+    const BM={};BWR.forEach(b=>BM[b.d]=b);
+    for(let w=0;w<nW;w++){const ws=addDays(wSt,w*7);font(7.5);col(C.mut);T(fShort(ws),M,y+cs/2+1.2);
+      for(let i=0;i<7;i++){const d=addDays(ws,i),x=gx+i*(cs+1.4);if(d<f||d>endD)continue;const b=BM[d];
+        if(b){doc.setFillColor(...BC[b.c]);doc.roundedRect(x,y,cs,cs,1.2,1.2,'F');if(b.n!==''){font(8,1);col([255,255,255]);T(String(b.n),x+cs/2,y+cs/2+1.4,{align:'center'})}}
+        else{doc.setDrawColor(...C.line);doc.setLineWidth(.25);doc.roundedRect(x,y,cs,cs,1.2,1.2,'S')}}
+      y+=cs+1.4}
+    y+=3;font(7.5);col(C.mut);let lx=M;[['G','Ideal'],['A','Constipação'],['C','Solto']].forEach(([k,l])=>{doc.setFillColor(...BC[k]);doc.roundedRect(lx,y-2.6,3,3,.6,.6,'F');T(l,lx+4.2,y);lx+=30});y+=9;
+    // medicação x intestino
+    const ms=bowMedStats(f,t);
+    if(ms){need(40);font(10,1);col(C.ink);T('Dias depois da aplicação de medicação',M,y);y+=6;const bw=110,bx=M+26;
+      ms.rows.forEach(r=>{font(8.5);col(C.mut);T(r.l,M,y+3.6);doc.setFillColor(...C.card);doc.roundedRect(bx,y,bw,5.5,1,1,'F');let x=bx;[['G',r.G],['A',r.A],['C',r.C]].forEach(([k,v])=>{if(!v||!r.tot)return;const w=v/r.tot*bw;doc.setFillColor(...BC[k]);doc.rect(x,y,w,5.5,'F');font(7,1);col([255,255,255]);T(String(v),x+w/2,y+3.9,{align:'center'});x+=w});y+=7.5});
+      font(8.5);col(C.mut);doc.splitTextToSize(pt_(`Baseado em ${ms.n} registros com tipo de Bristol. ${ms.msg}`),PW-2*M).forEach(s=>{T(s,M,y+2);y+=4.6});y+=6}
+    // lista
+    need(20);font(10,1);col(C.ink);T('Registros',M,y);y+=4;
+    doc.setFillColor(...C.navy);doc.roundedRect(M,y,PW-2*M,7,1.5,1.5,'F');font(8,1);col([255,255,255]);const cx=[M+3,M+34,M+118,M+136,M+152];['Data','Tipo','Horário','Vezes','Observação'].forEach((h,i)=>T(h,cx[i],y+4.7));y+=11.5;
+    BWR.slice().reverse().forEach((b,i)=>{const r=bowGet(b.d);need(7);if(i%2===0){doc.setFillColor(...C.card);doc.rect(M,y-4.3,PW-2*M,6.6,'F')}
+      doc.setFillColor(...BC[b.c]);doc.circle(cx[1]+1.6,y-1.2,1.6,'F');font(8.5);col(C.ink);T(fFull(b.d),cx[0],y);
+      const tp=r.b?`${r.b} - ${BRIS[r.b-1][1]}`:(r.k?(BOWEL_OPTS.find(o=>o[0]===r.k)||[,r.k])[1]:(r.x===0?'Não evacuei':'-'));T(doc.splitTextToSize(pt_(tp),80)[0],cx[1]+5,y);
+      T(r.t||'-',cx[2],y);T(r.x!=null?String(r.x):'-',cx[3],y);T(doc.splitTextToSize(pt_(r.o||''),PW-M-cx[4])[0]||'',cx[4],y);y+=6.6});
+    y+=4}
   // photos
   if(wantPh){const list=PH.filter(p=>p.d>=f&&p.d<=t);
     if(list.length){doc.addPage();y=M;sec('Fotos de progresso',24);const cw=(PW-2*M-2*6)/3,chh=cw*4/3;
@@ -988,7 +1071,7 @@ async function genPDF(){
   await dl(`peso-ultra-relatorio-${today()}.pdf`,doc.output('blob'));
 }
 function pdfChart(doc,x,y,w,h,pts,o={}){
-  const C=PC,pl=o.small?2:13,pb=o.small?2:7,pt=2.5,pr=2;
+  const C=PC,pl=o.small?2:13,pb=o.small?2:(o.bowel?13:7),pt=2.5,pr=2;
   doc.setDrawColor(...C.line);doc.setLineWidth(.2);doc.roundedRect(x,y,w,h,2,2,'S');
   if(pts.length<2){doc.setFontSize(9);doc.setTextColor(...C.mut);doc.text('Dados insuficientes',x+w/2,y+h/2,{align:'center'});return}
   const t0=dayNum(pts[0].d),span=Math.max(1,dayNum(pts.at(-1).d)-t0),vals=pts.map(p=>p.v);if(o.goal!=null)vals.push(o.goal);
@@ -1002,6 +1085,7 @@ function pdfChart(doc,x,y,w,h,pts,o={}){
   for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],c=b.v===a.v?C.mut:((b.v<a.v)!==!!o.inv)?C.green:C.orange;doc.setDrawColor(...c);doc.line(X(a.d),Y(a.v),X(b.d),Y(b.v))}
   if(pts.length<=45){doc.setFillColor(255,255,255);doc.setLineWidth(.35);pts.forEach(p=>{doc.setDrawColor(...C.blue);doc.circle(X(p.d),Y(p.v),.7,'FD')})}
   doc.setFillColor(...C.gold);doc.circle(X(pts.at(-1).d),Y(pts.at(-1).v),1.1,'F');
+  if(o.bowel){const BC={A:[186,117,23],G:[59,109,17],C:[153,60,29],X:[95,94,90]},t1=dayNum(pts.at(-1).d),yb=y+h-9;o.bowel.forEach(b=>{const k=dayNum(b.d);if(k<t0||k>t1)return;doc.setFillColor(...BC[b.c]);doc.circle(X(b.d),yb,1.7,'F');if(b.n!==''&&span<=120){doc.setFontSize(5.5);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);doc.text(String(b.n),X(b.d),yb+.75,{align:'center'})}});doc.setFont('helvetica','normal')}
 }
 
 /* ---------- demo ---------- */
@@ -1172,10 +1256,13 @@ A.bowSave=()=>{
 A.bowHist=async()=>{if(!await needUnlock())return;openSheet(bowHistHTML())};
 A.bowEdit=el=>{bowDate=el.dataset.d;closeSheet();bowRefresh();const c=$('#bowCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
 A.bowDel=async el=>{if(!await askConfirm('Excluir registro',`Remover o registro intestinal de ${fFull(el.dataset.d)}?`,'Excluir',true))return;delete S.bowel[el.dataset.d];save();openSheet(bowHistHTML());bowRefresh()};
-A.bowLock=()=>{unlocked=false;renderView(true);toast('Bloqueado')};
+A.bowLock=()=>{unlocked=false;bowView=false;renderView(true);toast('Bloqueado')};
+A.bowView=async()=>{if(bowView&&S.settings.lock&&unlocked){bowView=false;renderView(true);return}
+  if(!S.settings.lock){openSheet(lockHTML());toast('Crie um PIN para usar o registro intestinal');return}
+  if(!await needUnlock())return;bowView=true;renderView(true)};
 /* backup / report */
 A.reportSheet=()=>openSheet(reportHTML());
-A.genPDF=()=>{PER.rep.photos=$('#rPh').checked;genPDF()};
+A.genPDF=()=>{PER.rep.photos=$('#rPh').checked;if($('#rBw'))PER.rep.bowel=$('#rBw').checked;genPDF()};
 A.backupSheet=()=>openSheet(backupHTML());
 A.expJSON=async()=>{
   const withPh=$('#bPh').checked,pw=$('#bPw').value;
