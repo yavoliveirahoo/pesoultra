@@ -66,7 +66,21 @@ button{cursor:pointer;border:0;background:none;padding:0}
 body.pen .pen-hint{display:block}
 .wnote{width:100%;margin-top:16px;background:var(--s2);border:1px solid var(--line);border-radius:16px;padding:12px 14px;font-size:15px;color:var(--tx);outline:0}
 .wnote:focus{border-color:rgba(228,180,94,.5)}
-.wbowel{width:100%;margin-top:16px;background:var(--s2);border:1px solid var(--line);border-radius:16px;padding:12px 14px;font-size:15px;color:var(--tx);outline:0}
+.bowl{display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:var(--tx)}
+.bowl .lk{width:40px;height:40px;border-radius:14px;background:var(--s2);display:grid;place-items:center;color:var(--gold);flex:none}
+.bowl b{flex:1;font-size:17px;font-weight:600}
+.bris{display:grid;gap:6px;margin:2px 0 14px}
+.bri{overflow:hidden;display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:8px 10px;font-size:13.5px;line-height:1.25;color:var(--tx)}
+.bri.on{border:2px solid var(--gold);padding:7px 9px;background:var(--s3)}
+.bri svg{width:40px;height:22px;flex:none}
+.bri .bd{flex:1;min-width:0;font-weight:600}.bri .bd .btag{display:inline-block;margin-top:4px;font-size:10.5px;padding:2px 7px}
+.bn{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff;flex:none}
+.btag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:8px;flex:none;white-space:nowrap}
+.bA{background:#633806;color:#FAC775}.bA.bn{background:#BA7517;color:#fff}
+.bG{background:#27500A;color:#C0DD97}.bG.bn{background:#3B6D11;color:#fff}
+.bC{background:#712B13;color:#F5C4B3}.bC.bn{background:#993C1D;color:#fff}
+.bX{background:var(--s3);color:var(--tx2)}.bX.bn{background:#444441;color:#fff}
+.bform{margin-bottom:12px}
 .ntags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ntags button{padding:6px 11px;border-radius:999px;background:var(--s2);color:var(--tx2);font-size:12.5px;font-weight:600}
 .nt{color:var(--gold2)!important}
@@ -632,12 +646,11 @@ views.home=()=>{
   <div class="seg" role="group" aria-label="Unidade"><button class="${u==='kg'?'on':''}" data-act="unit" data-u="kg">kg</button><button class="${u==='lb'?'on':''}" data-act="unit" data-u="lb">lb</button></div></div>
   <div class="wrow"><button class="step" data-act="step" data-s="-0.1" aria-label="Diminuir 0,1">\u2212</button><input class="wbig" id="wIn" inputmode="decimal" autocomplete="off" placeholder="0,0" value="${pre!=null?nf(toU(pre),1):''}" aria-label="Peso em ${u}"><button class="step" data-act="step" data-s="0.1" aria-label="Aumentar 0,1">+</button></div>
   <div class="wunit">${u}</div><p class="pen-hint">S Pen detectada: escreva o valor à mão direto no campo.</p>
-  <select class="wbowel" id="wBowel" aria-label="Como foi seu intestino">${[['','Intestino: sem registro']].concat(BOWEL_OPTS).map(([k,t])=>`<option value="${k}"${(S.bowel[homeDate]||'')===k?' selected':''}>${esc(t)}</option>`).join('')}</select>
   <input class="wnote" id="wNote" maxlength="80" autocomplete="off" placeholder="Nota do dia (opcional)" aria-label="Nota do dia" value="${esc(ex&&ex.n||'')}">
   <div class="ntags">${NOTE_TAGS.map(t=>`<button data-act="noteTag" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>
   <div style="margin-top:18px"><button class="btn" data-act="reg">${isT?'Registrar peso de hoje':'Salvar peso de '+fShort(homeDate)}</button></div>${dl2}
   <div class="dl"><button class="link" data-act="histSheet">Histórico e edição por data</button></div></section>
-  ${backupNag()}${medHome()}${goalCard()}${msCard()}${measSummary()}${photoStrip()}`;
+  ${bowCard()}${backupNag()}${medHome()}${goalCard()}${msCard()}${measSummary()}${photoStrip()}`;
 };
 views.med=()=>{
   const ms=allM();
@@ -695,7 +708,7 @@ views.mais=()=>{
    <button class="row" data-act="reportSheet"><span class="lead g">${ic.file}</span><div class="t"><b>Relatório em PDF</b><span>Resumo, gráficos, medidas e fotos</span></div>${ic.chev}</button>
    <button class="row" data-act="backupSheet"><span class="lead">${ic.cloud}</span><div class="t"><b>Backup e restauração</b><span>${S.settings.lastBackup?'Último backup em '+fShort(S.settings.lastBackup):'Nenhum backup feito ainda'}</span></div>${ic.chev}</button>
    <button class="row" data-act="goalSheet"><span class="lead">${ic.target}</span><div class="t"><b>Meta e perfil</b><span>${S.settings.goal!=null?'Meta '+nf(toU(S.settings.goal))+' '+unitL():'Definir meta e idade'}</span></div>${ic.chev}</button>
-   <button class="row" data-act="lockSheet"><span class="lead">${ic.lock}</span><div class="t"><b>Bloqueio das fotos</b><span>${lk?'Ativado ('+(lk.cred?'biometria e PIN':'PIN')+')':'Desativado'}</span></div>${ic.chev}</button>
+   <button class="row" data-act="lockSheet"><span class="lead">${ic.lock}</span><div class="t"><b>Bloqueio (fotos e intestino)</b><span>${lk?'Ativado ('+(lk.cred?'biometria e PIN':'PIN')+')':'Desativado'}</span></div>${ic.chev}</button>
    <button class="row" data-act="integSheet"><span class="lead">${ic.scale}</span><div class="t"><b>Samsung Health e Google Fit</b><span>Sincronização e widgets</span></div>${ic.chev}</button>
   </div>
   <div class="group">
@@ -726,8 +739,8 @@ function goalHTML(){
 function histHTML(){
   const u=unitL(),w=S.weights;
   const rows=w.map((x,i)=>({...x,dd:i?toU(x.kg-w[i-1].kg):null})).reverse();
-  return sh('Histórico de peso',`<div class="form"><div class="two"><label>Data<input type="date" id="hsD" value="${today()}" max="${today()}" data-chg="hsdate"></label><label>Peso (${u})<input id="hsV" inputmode="decimal" placeholder="0,0"></label></div><label>Intestino<select id="hsB" aria-label="Como foi seu intestino">${[['','Sem registro']].concat(BOWEL_OPTS).map(([k,t])=>`<option value="${k}"${(S.bowel[today()]||'')===k?' selected':''}>${esc(t)}</option>`).join('')}</select></label><label>Nota (opcional)<input id="hsN" maxlength="80" autocomplete="off" placeholder="Ex.: dormi mal, treino pesado"></label><button class="btn sm" data-act="histSave">Salvar registro</button></div>
-  ${rows.length?rows.map(r=>`<div class="hist"><div class="t"><b>${nf(toU(r.kg))} ${u}</b><span>${cap(fmt(r.d,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</span>${r.n?`<span class="nt">${esc(r.n)}</span>`:''}${S.bowel[r.d]&&BOWEL_OPTS.some(o=>o[0]===S.bowel[r.d])?`<span class="nt">${esc(BOWEL_OPTS.find(o=>o[0]===S.bowel[r.d])[1])}</span>`:''}</div>${r.dd!=null?chipW(r.dd):''}<button class="mini" data-act="histEdit" data-d="${r.d}" aria-label="Editar">${ic.pen}</button><button class="mini" data-act="histDel" data-d="${r.d}" aria-label="Excluir">${ic.trash}</button></div>`).join(''):'<div class="empty">Sem registros ainda.</div>'}`);
+  return sh('Histórico de peso',`<div class="form"><div class="two"><label>Data<input type="date" id="hsD" value="${today()}" max="${today()}" ></label><label>Peso (${u})<input id="hsV" inputmode="decimal" placeholder="0,0"></label></div><label>Nota (opcional)<input id="hsN" maxlength="80" autocomplete="off" placeholder="Ex.: dormi mal, treino pesado"></label><button class="btn sm" data-act="histSave">Salvar registro</button></div>
+  ${rows.length?rows.map(r=>`<div class="hist"><div class="t"><b>${nf(toU(r.kg))} ${u}</b><span>${cap(fmt(r.d,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</span>${r.n?`<span class="nt">${esc(r.n)}</span>`:''}</div>${r.dd!=null?chipW(r.dd):''}<button class="mini" data-act="histEdit" data-d="${r.d}" aria-label="Editar">${ic.pen}</button><button class="mini" data-act="histDel" data-d="${r.d}" aria-label="Excluir">${ic.trash}</button></div>`).join(''):'<div class="empty">Sem registros ainda.</div>'}`);
 }
 function medRegHTML(){
   return sh('Registrar medidas',`<div class="form"><label>Data<input type="date" id="mrD" value="${today()}" max="${today()}"></label>
@@ -798,14 +811,48 @@ async function bioCreate(){const c=await navigator.credentials.create({publicKey
 async function bioGet(id){await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:unb64(id)}],userVerification:'required',timeout:60000}});return true}
 function unlockHTML(){
   const lk=S.settings.lock;
-  return sh('Desbloquear fotos',`<div class="form">${lk.cred?`<button class="btn" data-act="bioUnlock">${ic.lock} Usar biometria</button>`:''}<label>PIN<input id="uPin" type="password" inputmode="numeric" autocomplete="off" placeholder="Digite seu PIN"></label><button class="btn ${lk.cred?'ghost':''}" data-act="pinUnlock">Desbloquear com PIN</button><button class="link" data-act="forgotPin" style="justify-self:center">Esqueci o PIN</button></div>`);
+  return sh('Desbloquear',`<div class="form">${lk.cred?`<button class="btn" data-act="bioUnlock">${ic.lock} Usar biometria</button>`:''}<label>PIN<input id="uPin" type="password" inputmode="numeric" autocomplete="off" placeholder="Digite seu PIN"></label><button class="btn ${lk.cred?'ghost':''}" data-act="pinUnlock">Desbloquear com PIN</button><button class="link" data-act="forgotPin" style="justify-self:center">Esqueci o PIN</button></div>`);
 }
 function lockHTML(){
   const lk=S.settings.lock;
-  if(lk)return sh('Bloqueio das fotos',`<p class="note" style="margin:0 0 14px">As fotos só aparecem depois de desbloquear a cada abertura do app. ${lk.cred?'Biometria e PIN ativos.':'PIN ativo.'}</p><div class="form"><button class="btn ghost" data-act="lockOff">Desativar bloqueio</button></div>`);
-  return sh('Bloqueio das fotos',`<div class="form"><p class="note" style="margin:0">Crie um PIN de 4 a 8 dígitos. Se o aparelho oferecer biometria (impressão digital ou rosto), você também poderá usá-la para desbloquear.</p><label>PIN<input id="lPin" type="password" inputmode="numeric" autocomplete="off" placeholder="4 a 8 dígitos"></label><label class="chk"><input type="checkbox" id="lBio" checked> Ativar biometria quando disponível</label><button class="btn" data-act="lockOn">Ativar bloqueio</button></div>`);
+  if(lk)return sh('Bloqueio (fotos e intestino)',`<p class="note" style="margin:0 0 14px">As fotos e o registro intestinal só aparecem depois de desbloquear a cada abertura do app. ${lk.cred?'Biometria e PIN ativos.':'PIN ativo.'}</p><div class="form"><button class="btn ghost" data-act="lockOff">Desativar bloqueio</button></div>`);
+  return sh('Bloqueio (fotos e intestino)',`<div class="form"><p class="note" style="margin:0">O PIN protege as fotos e o registro intestinal. Crie um PIN de 4 a 8 dígitos. Se o aparelho oferecer biometria (impressão digital ou rosto), você também poderá usá-la para desbloquear.</p><label>PIN<input id="lPin" type="password" inputmode="numeric" autocomplete="off" placeholder="4 a 8 dígitos"></label><label class="chk"><input type="checkbox" id="lBio" checked> Ativar biometria quando disponível</label><button class="btn" data-act="lockOn">Ativar bloqueio</button></div>`);
 }
 function needUnlock(){return new Promise(res=>{if(!S.settings.lock||unlocked)return res(true);openSheet(unlockHTML());const t=setInterval(()=>{if(unlocked){clearInterval(t);res(true)}else if(!sheetWrap.classList.contains('open')){clearInterval(t);res(false)}},250)})}
+
+/* ---------- registro intestinal (protegido pelo mesmo PIN/biometria das fotos) ---------- */
+const BRIS=[[1,'Bolinhas duras separadas','Constipação','A'],[2,'Salsicha encaroçada','Constipação','A'],[3,'Salsicha com rachaduras','Ideal','G'],[4,'Lisa e macia, tipo cobra','Ideal','G'],[5,'Pedaços moles, bordas definidas','Pouca fibra','C'],[6,'Pastoso, bordas irregulares','Diarreia leve','C'],[7,'Líquido, sem pedaços','Diarreia','C']];
+const BSHP={1:'<circle cx="8" cy="12" r="4"/><circle cx="18" cy="9" r="3.5"/><circle cx="27" cy="13" r="4"/><circle cx="36" cy="10" r="3"/>',2:'<circle cx="9" cy="12" r="5"/><circle cx="17" cy="11" r="5.5"/><circle cx="26" cy="12" r="5"/><circle cx="34" cy="11" r="5"/>',3:'<rect x="3" y="6" width="38" height="12" rx="6"/><path d="M12 6v4M20 18v-4M28 6v4M34 18v-3" stroke="#212736" stroke-width="1.6"/>',4:'<rect x="3" y="7" width="38" height="10" rx="5"/>',5:'<ellipse cx="9" cy="12" rx="6" ry="4.5"/><ellipse cx="22" cy="11" rx="6" ry="5"/><ellipse cx="35" cy="12" rx="6" ry="4.5"/>',6:'<path d="M4 14q3-8 8-4t7-3 6 4 8-3 7 5q-2 5-8 3t-7 2-8-2-7 3-6-5z"/>',7:'<path d="M3 12q5-6 10 0t10 0 10 0 10 0" fill="none" stroke="#A88463" stroke-width="3" stroke-linecap="round"/>'};
+const bShape=n=>`<svg viewBox="0 0 44 24" fill="#A88463" aria-hidden="true">${BSHP[n]}</svg>`;
+let bowDate=today(),bowSel=null;
+const bowHas=()=>Object.keys(S.bowel||{}).length>0;
+function bowGet(d){const r=S.bowel[d];if(r==null)return null;if(typeof r==='string')return {k:r};return r}
+function bowCls(r){if(!r)return 'X';if(r.b)return BRIS[r.b-1][3];if(r.x===0||r.k==='nao')return 'X';return {normal:'G',preso:'A',diarreia:'C'}[r.k]||'X'}
+function bowTxt(r){
+  if(!r)return '';const p=[];
+  if(r.b)p.push(`Tipo ${r.b} · ${BRIS[r.b-1][1]}`);else if(r.k){const l=BOWEL_OPTS.find(o=>o[0]===r.k);p.push(l?l[1]:r.k)}
+  if(r.x===0)p.push('Não evacuei');else if(r.x>1)p.push(`${r.x} vezes`);
+  if(r.t)p.push('às '+r.t);
+  return p.join(' · ')||'Registrado';
+}
+function bowCard(){
+  if(!S.settings.lock||!unlocked)return `<section class="card" id="bowCard"><button class="bowl" data-act="bowOpen"><span class="lk">${ic.lock}</span><b>Registro intestinal</b>${ic.chev}</button></section>`;
+  const r=bowGet(bowDate)||{},isT=bowDate===today();bowSel=r.b||null;
+  return `<section class="card" id="bowCard"><div class="hd"><h2>Registro intestinal</h2><label class="datechip">${ic.cal}<span>${isT?'Hoje':fShort(bowDate)}</span><input type="date" id="bDate" value="${bowDate}" max="${today()}" data-chg="bdate" aria-label="Data do registro intestinal"></label></div>
+  <p class="mut sm" style="margin:0 0 8px">Escala de Bristol (opcional). Toque de novo para desmarcar.</p>
+  <div class="bris">${BRIS.map(([n,d,k,c])=>`<button class="bri${r.b===n?' on':''}" data-act="bri" data-n="${n}"><span class="bn b${c}">${n}</span>${bShape(n)}<span class="bd">${d}<br><span class="btag b${c}">${k}</span></span></button>`).join('')}</div>
+  <div class="form bform"><div class="two"><label>Horário<input type="time" id="bT" value="${esc(r.t||'')}"></label><label>Vezes no dia<input id="bX" inputmode="numeric" placeholder="1" value="${r.x!=null?r.x:''}"></label></div>
+  <label>Observação (opcional)<input id="bO" maxlength="80" autocomplete="off" placeholder="Dor, sangue, esforço…" value="${esc(r.o||'')}"></label></div>
+  <button class="btn sm" data-act="bowSave">${bowGet(bowDate)?'Atualizar registro':'Registrar'}</button>
+  <div class="dl"><button class="link" data-act="bowHist">Histórico intestinal</button><span>·</span><button class="link" data-act="bowLock">Bloquear</button></div></section>`;
+}
+function bowRefresh(){const c=$('#bowCard');if(c)c.outerHTML=bowCard()}
+function bowHistHTML(){
+  const ds=Object.keys(S.bowel).sort().reverse();
+  const cnt={A:0,G:0,C:0},last30=ds.filter(d=>dayNum(today())-dayNum(d)<30);last30.forEach(d=>{const c=bowCls(bowGet(d));if(cnt[c]!=null)cnt[c]++});
+  const sum=last30.length?`<p class="note" style="margin:0 0 10px">Últimos 30 dias: ${last30.length} ${last30.length===1?'registro':'registros'} · <span class="btag bG">${cnt.G} ideal</span> <span class="btag bA">${cnt.A} constipação</span> <span class="btag bC">${cnt.C} solto</span></p>`:'';
+  return sh('Histórico intestinal',sum+(ds.length?ds.map(d=>{const r=bowGet(d),c=bowCls(r);return `<div class="hist"><span class="bn b${c}">${r.b||'–'}</span><div class="t"><b>${cap(fmt(d,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</b><span>${esc(bowTxt(r))}</span>${r.o?`<span class="nt">${esc(r.o)}</span>`:''}</div><button class="mini" data-act="bowEdit" data-d="${d}" aria-label="Editar">${ic.pen}</button><button class="mini" data-act="bowDel" data-d="${d}" aria-label="Excluir">${ic.trash}</button></div>`}).join(''):'<div class="empty">Sem registros ainda.</div>'));
+}
 
 /* ---------- medicação ---------- */
 function medFormHTML(){
@@ -981,7 +1028,6 @@ A.reg=()=>{
   const kg=fromU(v);if(kg<20||kg>400){toast('Esse valor parece fora do normal');return}
   const d=homeDate,prev=S.weights.filter(w=>w.d<d).at(-1),before=msIds(),others=S.weights.filter(w=>w.d!==d).map(w=>w.kg);
   setWeight(d,kg,cleanNote($('#wNote')&&$('#wNote').value));
-  {const bw=$('#wBowel')?$('#wBowel').value:'';if(bw)S.bowel[d]=bw;else delete S.bowel[d];save()}
   toast(prev?`Registrado: ${nf(toU(kg))} ${unitL()} (${sg(toU(kg-prev.kg))} vs anterior)`:`Primeiro peso registrado: ${nf(toU(kg))} ${unitL()}`);
   const rec=S.settings.goal!=null&&others.length>=5&&d>=S.weights.at(-1).d?(gainGoal()?(kg>Math.max(...others)?'Maior peso registrado até agora':''):(kg<Math.min(...others)?'Menor peso registrado até agora':'')):'';
   announce(before,rec);
@@ -995,8 +1041,8 @@ A.saveGoal=()=>{
   S.settings.goal=fromU(g);S.settings.startKg=st!=null?fromU(st):(S.weights.at(-1)?.kg??null);S.settings.age=a!=null&&a>=10&&a<=110?Math.round(a):null;save();closeSheet();renderView(true);toast('Meta salva');
 };
 A.histSheet=()=>openSheet(histHTML());
-A.histSave=()=>{const d=$('#hsD').value,v=num($('#hsV').value);if(!d||v==null||fromU(v)<20||fromU(v)>400){toast('Informe data e peso válidos');return}const had=S.weights.some(w=>w.d===d),before=msIds(),nt=$('#hsN');setWeight(d,fromU(v),nt&&(nt.dataset.touched==='1'||nt.value.trim())?cleanNote(nt.value):undefined);{const b=$('#hsB')?$('#hsB').value:'';if(b)S.bowel[d]=b;else delete S.bowel[d];save()}openSheet(histHTML());renderView(true);toast(had?'Registro atualizado':'Registro salvo');announce(before)};
-A.histEdit=el=>{const w=S.weights.find(x=>x.d===el.dataset.d);$('#hsD').value=w.d;$('#hsV').value=nf(toU(w.kg),1);$('#hsN').value=w.n||'';$('#hsN').dataset.touched='1';$('#hsB').value=S.bowel[w.d]||'';$('.sheet').scrollTop=0;$('#hsV').focus()};
+A.histSave=()=>{const d=$('#hsD').value,v=num($('#hsV').value);if(!d||v==null||fromU(v)<20||fromU(v)>400){toast('Informe data e peso válidos');return}const had=S.weights.some(w=>w.d===d),before=msIds(),nt=$('#hsN');setWeight(d,fromU(v),nt&&(nt.dataset.touched==='1'||nt.value.trim())?cleanNote(nt.value):undefined);openSheet(histHTML());renderView(true);toast(had?'Registro atualizado':'Registro salvo');announce(before)};
+A.histEdit=el=>{const w=S.weights.find(x=>x.d===el.dataset.d);$('#hsD').value=w.d;$('#hsV').value=nf(toU(w.kg),1);$('#hsN').value=w.n||'';$('#hsN').dataset.touched='1';$('.sheet').scrollTop=0;$('#hsV').focus()};
 A.histDel=async el=>{if(!await askConfirm('Excluir registro',`Remover o peso de ${fFull(el.dataset.d)}?`,'Excluir',true))return;S.weights=S.weights.filter(w=>w.d!==el.dataset.d);save();openSheet(histHTML());renderView(true)};
 A.medSheet=()=>{
   const l=medSorted()[0],x=l&&MEDS.find(v=>v[0]===l.med);
@@ -1100,9 +1146,9 @@ A.pDel=async el=>{if(!await askConfirm('Excluir foto','Essa foto será removida 
 A.cmpSheet=async()=>{if(!await needUnlock())return;openSheet(cmpHTML())};
 /* lock */
 A.unlockSheet=()=>openSheet(unlockHTML());
-A.pinUnlock=async()=>{const lk=S.settings.lock,pin=$('#uPin').value;if(!pin)return;if(await sha(pin+lk.salt)===lk.hash){unlocked=true;closeSheet();renderView(true);toast('Fotos desbloqueadas')}else toast('PIN incorreto')};
-A.bioUnlock=async()=>{try{await bioGet(S.settings.lock.cred);unlocked=true;closeSheet();renderView(true);toast('Fotos desbloqueadas')}catch(e){toast('Biometria indisponível ou cancelada. Use o PIN.')}};
-A.forgotPin=async()=>{if(!await askConfirm('Esqueci o PIN','Para remover o bloqueio, todas as fotos de progresso deste aparelho serão apagadas. Peso e medidas são mantidos.','Apagar fotos',true))return;PH=[];await DB.clear();S.settings.lock=null;unlocked=false;save();closeSheet();renderView(true);toast('Bloqueio removido')};
+A.pinUnlock=async()=>{const lk=S.settings.lock,pin=$('#uPin').value;if(!pin)return;if(await sha(pin+lk.salt)===lk.hash){unlocked=true;closeSheet();renderView(true);toast('Desbloqueado')}else toast('PIN incorreto')};
+A.bioUnlock=async()=>{try{await bioGet(S.settings.lock.cred);unlocked=true;closeSheet();renderView(true);toast('Desbloqueado')}catch(e){toast('Biometria indisponível ou cancelada. Use o PIN.')}};
+A.forgotPin=async()=>{if(!await askConfirm('Esqueci o PIN','Para remover o bloqueio, todas as fotos de progresso e o registro intestinal deste aparelho serão apagados. Peso, medidas e medicação são mantidos.','Apagar e remover',true))return;PH=[];await DB.clear();S.bowel={};S.settings.lock=null;unlocked=false;save();closeSheet();renderView(true);toast('Bloqueio removido')};
 A.lockSheet=()=>openSheet(lockHTML());
 A.lockOn=async()=>{
   const pin=$('#lPin').value;if(!/^\d{4,8}$/.test(pin)){toast('O PIN precisa ter de 4 a 8 dígitos');return}
@@ -1110,14 +1156,30 @@ A.lockOn=async()=>{
   if($('#lBio').checked&&await bioAvail()){try{lk.cred=await bioCreate()}catch(e){toast('Biometria não disponível neste ambiente. O PIN foi ativado.')}}
   S.settings.lock=lk;unlocked=true;save();closeSheet();renderView(true);toast(lk.cred?'Bloqueio ativado com biometria e PIN':'Bloqueio ativado com PIN');
 };
-A.lockOff=async()=>{if(!await askConfirm('Desativar bloqueio','As fotos ficarão visíveis sem PIN.','Desativar'))return;S.settings.lock=null;save();closeSheet();renderView(true)};
+A.lockOff=async()=>{if(!await askConfirm('Desativar bloqueio','As fotos ficarão visíveis sem PIN. O registro intestinal fica escondido até você criar um novo PIN.','Desativar'))return;S.settings.lock=null;save();closeSheet();renderView(true)};
+
+/* registro intestinal */
+A.bowOpen=async()=>{if(!S.settings.lock){openSheet(lockHTML());toast('Crie um PIN para usar o registro intestinal');return}if(!await needUnlock())return;bowDate=today();bowRefresh()};
+A.bri=el=>{const n=+el.dataset.n;bowSel=bowSel===n?null:n;document.querySelectorAll('.bri').forEach(b=>b.classList.toggle('on',+b.dataset.n===bowSel))};
+A.bowSave=()=>{
+  if(!S.settings.lock||!unlocked){bowRefresh();return}
+  const t=$('#bT').value,xs=$('#bX').value.trim(),o=cleanNote($('#bO').value),x=xs===''?null:parseInt(xs,10);
+  if(xs!==''&&!(x>=0&&x<=20)){toast('Vezes no dia: use um número de 0 a 20');return}
+  if(!bowSel&&x==null&&!o&&!t){toast('Escolha um tipo ou preencha algum campo');return}
+  const old=bowGet(bowDate),r={};if(bowSel)r.b=bowSel;else if(old&&old.k&&x!==0)r.k=old.k;if(t)r.t=t;if(x!=null)r.x=x;if(o)r.o=o;
+  const had=!!old;S.bowel[bowDate]=r;save();toast(had?'Registro intestinal atualizado':'Registro intestinal salvo');bowDate=today();bowRefresh();
+};
+A.bowHist=async()=>{if(!await needUnlock())return;openSheet(bowHistHTML())};
+A.bowEdit=el=>{bowDate=el.dataset.d;closeSheet();bowRefresh();const c=$('#bowCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
+A.bowDel=async el=>{if(!await askConfirm('Excluir registro',`Remover o registro intestinal de ${fFull(el.dataset.d)}?`,'Excluir',true))return;delete S.bowel[el.dataset.d];save();openSheet(bowHistHTML());bowRefresh()};
+A.bowLock=()=>{unlocked=false;renderView(true);toast('Bloqueado')};
 /* backup / report */
 A.reportSheet=()=>openSheet(reportHTML());
 A.genPDF=()=>{PER.rep.photos=$('#rPh').checked;genPDF()};
 A.backupSheet=()=>openSheet(backupHTML());
 A.expJSON=async()=>{
   const withPh=$('#bPh').checked,pw=$('#bPw').value;
-  if(withPh&&PH.length&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return;openSheet(backupHTML());toast('Desbloqueado. Toque em exportar novamente.');return}
+  if((withPh&&PH.length||bowHas())&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return;openSheet(backupHTML());toast('Desbloqueado. Toque em exportar novamente.');return}
   try{
     const {blob,name}=await makeBackup(withPh,pw);
     const ok=await dl(name,blob);
@@ -1126,19 +1188,20 @@ A.expJSON=async()=>{
 };
 A.shareJSON=async()=>{
   const withPh=$('#bPh').checked,pw=$('#bPw').value;
-  if(withPh&&PH.length&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return;openSheet(backupHTML());toast('Desbloqueado. Toque novamente para compartilhar.');return}
+  if((withPh&&PH.length||bowHas())&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return;openSheet(backupHTML());toast('Desbloqueado. Toque novamente para compartilhar.');return}
   try{const {blob,name}=await makeBackup(withPh,pw);await finishBackup(blob,name)}catch(e){toast('Falha ao gerar o backup')}
 };
 A.quickBackup=async()=>{
   const r=await DB.all();if(Array.isArray(r)){PH=r;sortPH()}
-  if(PH.length&&S.settings.lock){openSheet(backupHTML());toast('Suas fotos estão protegidas. Escolha as opções do backup.');return}
+  if((PH.length||bowHas())&&S.settings.lock&&!unlocked){openSheet(backupHTML());toast('Seus dados estão protegidos. Escolha as opções do backup.');return}
   try{const {blob,name}=await makeBackup(true,'');await finishBackup(blob,name)}catch(e){toast('Falha ao gerar o backup')}
 };
 A.msSheet=()=>openSheet(msHTML());
 A.expCSV=async()=>{
+  if(bowHas()&&S.settings.lock&&!unlocked){closeSheet();if(!await needUnlock())return}
   const q=v=>`"${String(v).replace(/"/g,'""')}"`,rows=[['tipo','data','item','valor','unidade','nota']];
   S.weights.forEach(w=>rows.push(['peso',w.d,'Peso',nf(w.kg,1),'kg',w.n||'']));
-  Object.keys(S.bowel).sort().forEach(d=>{const l=BOWEL_OPTS.find(o=>o[0]===S.bowel[d]);rows.push(['intestino',d,'Intestino',l?l[1]:S.bowel[d],'','']);});
+  Object.keys(S.bowel).sort().forEach(d=>{const r=bowGet(d);rows.push(['intestino',d,'Intestino',bowTxt(r),'',r.o||'']);});
   allM().forEach(m=>mSeries(m.id).forEach(e=>rows.push(['medida',e.d,m.name,nf(e.v,1),'cm'])));
   medSorted().slice().reverse().forEach(m=>rows.push(['medicacao',m.d,`${m.med} (${siteName(m.site)})`,m.dose,'mg']));
   rows.forEach(r=>{while(r.length<6)r.push('')});
@@ -1163,7 +1226,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
 const CHG={
  medsel:()=>{keepM();mS.med=$('#mdN').value;const x=MEDS.find(v=>v[0]===mS.med);mS.dose=x?x[1][0]:'';openSheet(medFormHTML())},
  hdate:el=>{homeDate=el.value||today();renderView(true)},
- hsdate:el=>{const b=$('#hsB');if(b)b.value=S.bowel[el.value]||''},
+ bdate:el=>{bowDate=el.value||today();bowRefresh()},
  perfrom:el=>{PER[el.dataset.sc].from=el.value;repaint(el.dataset.sc)},
  perto:el=>{PER[el.dataset.sc].to=el.value;repaint(el.dataset.sc)},
  pdate:el=>{pState.d=el.value;const w=weightAt(el.value);if(num($('#pW').value)==null&&w!=null){$('#pW').value=nf(toU(w),1);pState.kg=w}},
