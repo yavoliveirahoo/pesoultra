@@ -773,7 +773,6 @@ views.mais=()=>{
    <button class="row" data-act="integSheet"><span class="lead">${ic.scale}</span><div class="t"><b>Samsung Health e Google Fit</b><span>Sincronização e widgets</span></div>${ic.chev}</button>
   </div>
   <div class="group">
-   <button class="row" data-act="demo"><span class="lead">${ic.spark}</span><div class="t"><b>Carregar dados de demonstração</b><span>90 dias de peso e medidas para explorar</span></div></button>
    <button class="row" data-act="wipe"><span class="lead" style="color:var(--up)">${ic.trash}</span><div class="t"><b style="color:var(--up)">Apagar todos os dados</b><span>Peso, medidas e fotos deste aparelho</span></div></button>
   </div>
   <p class="note" style="padding:0 6px">Os dados ficam guardados somente neste navegador, sem enviar nada para servidores. Faça backups periódicos.</p>`;
@@ -1126,18 +1125,6 @@ function pdfChart(doc,x,y,w,h,pts,o={}){
   if(o.bowel){const BC={A:[186,117,23],G:[59,109,17],C:[153,60,29],X:[95,94,90]},t1=dayNum(pts.at(-1).d),yb=y+h-9;o.bowel.forEach(b=>{const k=dayNum(b.d);if(k<t0||k>t1)return;doc.setFillColor(...BC[b.c]);doc.circle(X(b.d),yb,1.7,'F');if(b.n!==''&&span<=120){doc.setFontSize(5.5);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);doc.text(String(b.n),X(b.d),yb+.75,{align:'center'})}});doc.setFont('helvetica','normal')}
 }
 
-/* ---------- demo ---------- */
-function demo(){
-  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
-  const eff=[.22,.34,.02,-.08,-.1,-.04,.14],t=today();S.weights=[];
-  for(let i=0;i<90;i++){if(i<88&&rnd()<.08)continue;const d=addDays(t,-(89-i));const kg=92.4-0.064*i+eff[parse(d).getDay()]+(rnd()-.5)*.35;S.weights.push({d,kg:Math.round(kg*10)/10})}
-  const ms={abdomen:[103,96.8],cintura:[97,91.2],quadril:[104.5,101.6],peito:[107,105],braco_d:[34,34.6],braco_e:[33.8,33.5],coxa_d:[61,58.8],coxa_e:[60.6,58.4],pescoco:[39.5,38.2]};
-  S.measures={custom:[],entries:{}};
-  Object.entries(ms).forEach(([id,[a,b]])=>{S.measures.entries[id]=[0,30,60,89].map(i=>({d:addDays(t,-(89-i)),v:Math.round((a+(b-a)*i/89+(rnd()-.5)*.5)*10)/10}))});
-  S.meds=[0,1,2,3,4].map(i=>({id:'demo'+i,med:'Mounjaro',dose:i<2?'5':'2,5',site:['cd','ad','be','ce','bd'][i],d:addDays(t,-2-7*i),other:false}));
-  S.settings.goal=82;S.settings.startKg=S.weights[0].kg;S.settings.age=34;save();
-}
-
 /* ---------- actions ---------- */
 const A={};
 A.tab=el=>{tab=el.dataset.t;renderView()};
@@ -1343,7 +1330,6 @@ async function onRestore(e){
   }catch(er){toast('Arquivo de backup inválido')}
 }
 A.integSheet=()=>openSheet(sh('Integrações e widgets',`<p class="note" style="margin:0 0 14px">Estes recursos dependem de acesso ao sistema Android e ficam disponíveis apenas na versão nativa do Peso Ultra para Galaxy.</p><div class="group" style="border-radius:22px">${[['Samsung Health','Sincronizar peso e medidas'],['Google Fit','Sincronizar peso'],['Samsung Cloud e Google Drive','Backup automático'],['Widgets e Always On Display','Peso de hoje e progresso da meta']].map(([a,b])=>`<div class="row" style="cursor:default"><div class="t"><b>${a}</b><span>${b}</span></div><span class="pill" style="margin:0">Versão nativa</span></div>`).join('')}</div><p class="note">Enquanto isso, use o backup em .json ou .csv e salve o arquivo no Drive ou no Samsung Cloud.</p>`));
-A.demo=async()=>{if(S.weights.length&&!await askConfirm('Carregar demonstração','Isso substitui seus registros de peso e medidas atuais.','Substituir',true))return;demo();renderView();toast('Dados de demonstração carregados')};
 A.wipe=async()=>{if(!await askConfirm('Apagar tudo','Peso, medidas, fotos e configurações serão removidos deste aparelho. Isso não pode ser desfeito.','Apagar tudo',true))return;S=Object.assign(blank());save();PH=[];await DB.clear();unlocked=false;renderView();toast('Dados apagados')};
 
 /* ---------- events ---------- */
