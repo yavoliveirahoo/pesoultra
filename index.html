@@ -466,7 +466,7 @@ function patterns(from,to){
 }
 
 /* ---------- periods ---------- */
-const PER={an:{k:'30'},det:{k:'all'},rep:{k:'30',photos:true}};
+const PER={an:{k:'30'},det:{k:'all'},rep:{k:'30',photos:true,phm:'period'}};
 function rng(sc){const p=PER[sc],t=today();if(p.k==='all')return['0000-01-01','9999-12-31'];if(p.k==='custom')return[p.from||addDays(t,-29),p.to||t];return[addDays(t,-(+p.k-1)),t]}
 function perBar(sc){
   const p=PER[sc],o=[['7','7 dias'],['30','30 dias'],['90','3 meses'],['all','Tudo'],['custom','Personalizado']];
@@ -1011,13 +1011,26 @@ async function applyPayload(p){
 /* ---------- PDF ---------- */
 const PC={navy:[9,14,30],blue:[47,128,255],gold:[228,180,94],green:[18,150,104],orange:[224,98,20],ink:[27,33,48],mut:[104,114,135],line:[222,227,236],card:[244,246,250]};
 const pt_=s=>String(s).replace(/[\u2212\u2013\u2014]/g,'-').replace(/[\u00b7\u2022]/g,'|').replace(/\u2248/g,'~').replace(/\u2192/g,'>');
+/* fotos do relatório: do período, do último mês com fotos ou todas */
+function repPhotos(mode,f,t){if(mode==='all')return PH.slice();if(mode==='last'){const m=PH.map(p=>p.month).sort().at(-1);return m?PH.filter(p=>p.month===m):[]}return PH.filter(p=>p.d>=f&&p.d<=t)}
+function repPhNote(){
+  if(!PH.length)return 'Você ainda não tem fotos de progresso.';
+  const[f,t]=rng('rep'),m=PER.rep.phm,L=repPhotos(m,f,t),last=PH.map(p=>p.d).sort().at(-1),n=L.length,q=`${n} ${n===1?'foto':'fotos'}`;
+  if(m==='period'&&!n)return `<span style="color:var(--up)">Nenhuma foto neste período.</span> A última é de ${fFull(last)}. Escolha outro período ou outra opção acima.`;
+  if(m==='last')return `${q} de ${mLabel(L[0].month).toLowerCase()} vão no relatório.`;
+  return `${q} vão no relatório.`;
+}
+function repPhRefresh(){const on=$('#rPh')&&$('#rPh').checked,s=$('#rPhM'),n=$('#repPhNote');if(s)s.style.display=on?'':'none';if(n){n.style.display=on?'':'none';n.innerHTML=repPhNote()}}
 function reportHTML(){
+  const pm=PER.rep.phm,ph=PER.rep.photos;
   return sh('Relatório em PDF',`<p class="note" style="margin:0 0 10px">Escolha o período do relatório.</p><div id="repPer">${perBar('rep')}</div>
-  <div class="form"><label class="chk"><input type="checkbox" id="rPh" ${PER.rep.photos?'checked':''}> Incluir fotos de progresso do período</label>${bowHas()&&S.settings.lock?`<label class="chk"><input type="checkbox" id="rBw" ${PER.rep.bowel!==false?'checked':''}> Incluir registro intestinal (pede PIN)</label>`:''}<button class="btn" data-act="genPDF">Gerar PDF</button></div>`);
+  <div class="form"><label class="chk"><input type="checkbox" id="rPh" data-chg="rph" ${ph?'checked':''}> Incluir fotos de progresso</label>
+  <select id="rPhM" data-chg="rphm" aria-label="Quais fotos incluir"${ph?'':' style="display:none"'}>${[['period','Fotos do período escolhido'],['last','Fotos do último mês com fotos'],['all','Todas as fotos']].map(([k,l])=>`<option value="${k}"${pm===k?' selected':''}>${l}</option>`).join('')}</select>
+  <p class="note" id="repPhNote" style="margin:-4px 0 0${ph?'':';display:none'}">${repPhNote()}</p>${bowHas()&&S.settings.lock?`<label class="chk"><input type="checkbox" id="rBw" ${PER.rep.bowel!==false?'checked':''}> Incluir registro intestinal (pede PIN)</label>`:''}<button class="btn" data-act="genPDF">Gerar PDF</button></div>`);
 }
 async function genPDF(){
   if(!window.jspdf){toast('Biblioteca de PDF não carregou. Verifique a conexão.');return}
-  const[f,t]=rng('rep');let wantPh=$('#rPh')?.checked;
+  const[f,t]=rng('rep');let wantPh=$('#rPh')?.checked;const phMode=$('#rPhM')?.value||PER.rep.phm;
   const wantBw=!!($('#rBw')?.checked)&&!!S.settings.lock,BWR=wantBw?bowPts(f,t):[];
   const W=S.weights.filter(x=>x.d>=f&&x.d<=t);
   const hasM=allM().some(m=>mSeries(m.id).some(e=>e.d>=f&&e.d<=t));
@@ -1097,7 +1110,7 @@ async function genPDF(){
       T(r.t||'-',cx[2],y);T(r.x!=null?String(r.x):'-',cx[3],y);T(doc.splitTextToSize(pt_(r.o||''),PW-M-cx[4])[0]||'',cx[4],y);y+=6.6});
     y+=4}
   // photos
-  if(wantPh){const list=PH.filter(p=>p.d>=f&&p.d<=t);
+  if(wantPh){const list=repPhotos(phMode,f,t);
     if(list.length){doc.addPage();y=M;sec('Fotos de progresso',24);const cw=(PW-2*M-2*6)/3,chh=cw*4/3;
       for(const m of [...new Set(list.map(p=>p.month))].sort()){const ps=list.filter(p=>p.month===m).sort((a,b)=>ANG.findIndex(x=>x[0]===a.angle)-ANG.findIndex(x=>x[0]===b.angle)||(a.d<b.d?-1:1));
         need(chh+22);font(11,1);col(C.ink);T(mLabel(m),M,y+3);y+=7;
@@ -1204,7 +1217,7 @@ A.mEdit=el=>{$('#mD').value=el.dataset.d;$('#mV').value=nf(+el.dataset.v,1);$('.
 A.mDel=async el=>{if(!await askConfirm('Excluir medida',`Remover o registro de ${fFull(el.dataset.d)}?`,'Excluir',true))return;S.measures.entries[curM]=(S.measures.entries[curM]||[]).filter(e=>e.d!==el.dataset.d);save();openMeasure(curM);renderView(true)};
 A.delMeasure=async()=>{if(!await askConfirm('Excluir medida personalizada','Todo o histórico dessa medida será apagado.','Excluir',true))return;S.measures.custom=S.measures.custom.filter(c=>c.id!==curM);delete S.measures.entries[curM];save();closeSheet();renderView(true)};
 A.per=el=>{const sc=el.dataset.sc,k=el.dataset.k;if(k==='custom'&&PER[sc].k!=='custom'){const t=today();PER[sc].from=addDays(t,-29);PER[sc].to=t}PER[sc].k=k;repaint(sc)};
-function repaint(sc){if(sc==='an')renderView(true);else if(sc==='det')repaintDet();else if(sc==='rep'){const b=$('#repPer');if(b)b.innerHTML=perBar('rep')}}
+function repaint(sc){if(sc==='an')renderView(true);else if(sc==='det')repaintDet();else if(sc==='rep'){const b=$('#repPer');if(b)b.innerHTML=perBar('rep');repPhRefresh()}}
 /* photos */
 A.photoAdd=async el=>{
   if(!await needUnlock())return;
@@ -1338,6 +1351,8 @@ const CHG={
  medsel:()=>{keepM();mS.med=$('#mdN').value;const x=MEDS.find(v=>v[0]===mS.med);mS.dose=x?x[1][0]:'';openSheet(medFormHTML())},
  hdate:el=>{homeDate=el.value||today();renderView(true)},
  bdate:el=>{bowDate=el.value||today();bowRefresh()},
+ rph:el=>{PER.rep.photos=el.checked;repPhRefresh()},
+ rphm:el=>{PER.rep.phm=el.value;repPhRefresh()},
  perfrom:el=>{PER[el.dataset.sc].from=el.value;repaint(el.dataset.sc)},
  perto:el=>{PER[el.dataset.sc].to=el.value;repaint(el.dataset.sc)},
  pdate:el=>{pState.d=el.value;const w=weightAt(el.value);if(num($('#pW').value)==null&&w!=null){$('#pW').value=nf(toU(w),1);pState.kg=w}},
