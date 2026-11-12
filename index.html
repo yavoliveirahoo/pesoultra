@@ -197,8 +197,10 @@ body.pen .pen-hint{display:block}
 .ba .bl b{position:absolute;top:50%;left:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--gold);color:#0F1218;display:grid;place-items:center;font-size:16px}
 .ba .tg{position:absolute;top:10px;font-size:11.5px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 9px;border-radius:8px;pointer-events:none}
 .camw{position:relative;margin:0 auto;border-radius:22px;overflow:hidden;background:#000}
-.camw video,.camw .gh{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.camw .gh{pointer-events:none}
+.camw video,.camw canvas,.camw .gh{position:absolute;inset:0;width:100%;height:100%}
+.camw video{object-fit:contain}
+.camw .gh{pointer-events:none;object-fit:contain}
+.camw .msg{position:absolute;left:12px;right:12px;bottom:12px;font-size:13px;line-height:1.4;text-align:center;color:#fff;background:rgba(0,0,0,.65);padding:8px 10px;border-radius:12px}
 .camw .grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.18),rgba(255,255,255,.18)),linear-gradient(rgba(255,255,255,.18),rgba(255,255,255,.18)),linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.18)),linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.18));background-size:100% 1px,100% 1px,1px 100%,1px 100%;background-position:0 33.33%,0 66.66%,33.33% 0,66.66% 0;background-repeat:no-repeat}
 .camw .tg{position:absolute;top:10px;left:10px;font-size:11.5px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 9px;border-radius:8px}
 .camc{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:var(--tx2)}
@@ -1308,17 +1310,26 @@ let camOp=.35,camGrid=true;
 /* guia: a foto anterior do mesmo ângulo, transparente por cima da câmera */
 function camGhost(){if(!pState)return null;const L=PH.filter(p=>p.angle===pState.angle).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);return L.filter(p=>p.d<pState.d).at(-1)||L.at(-1)||null}
 function camHTML(){const g=camGhost(),al=(ANG.find(a=>a[0]===(pState&&pState.angle))||[,''])[1];
-  return sh('Câmera',`<div class="camw" id="camW" style="width:100%;aspect-ratio:3/4;max-height:62dvh"><video id="camV" autoplay playsinline muted style="${camFace==='user'?'transform:scaleX(-1)':''}"></video>${g?`<img class="gh" id="camG" src="${g.data}" alt="" style="opacity:${camOp}">`:''}<div class="grid" id="camGr"${camGrid?'':' style="display:none"'}></div>${g?`<span class="tg">Guia: ${esc(al.toLowerCase())} de ${esc(mLabel(g.month).split(' ')[0].toLowerCase().slice(0,3))}.</span>`:''}</div>
+  return sh('Câmera',`<div class="camw" id="camW" style="width:min(100%, calc(62dvh * .75));aspect-ratio:3/4"><video id="camV" autoplay playsinline muted></video><canvas id="camC" width="3" height="4"></canvas>${g?`<img class="gh" id="camG" src="${g.data}" alt="" style="opacity:${camOp}">`:''}<div class="grid" id="camGr"${camGrid?'':' style="display:none"'}></div>${g?`<span class="tg">Guia: ${esc(al.toLowerCase())} de ${esc(mLabel(g.month).split(' ')[0].toLowerCase().slice(0,3))}.</span>`:''}<div class="msg" id="camMsg">Abrindo a câmera…</div></div>
   <div class="camc">${g?`<span>Guia</span><input type="range" id="camOp" min="0" max="70" step="5" value="${Math.round(camOp*100)}" aria-label="Transparência do guia">`:'<span style="flex:1">Sem foto anterior deste ângulo para usar como guia.</span>'}<button class="chip ${camGrid?'on':''}" data-act="camGridT">Grade</button></div>
   <div class="form" style="margin-top:12px"><button class="btn" data-act="camShot">Capturar foto</button><div class="two"><button class="btn ghost sm" data-act="camFlip">Virar câmera</button><button class="btn ghost sm" data-act="camCancel">Cancelar</button></div></div>`)}
 async function startCam(){
   stopCam();
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Câmera ao vivo indisponível neste ambiente. Abra o link no Chrome.');return false}
   try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:camFace},width:{ideal:1440},height:{ideal:1920}},audio:false});
-    openSheet(camHTML());const v=$('#camV');v.srcObject=camStream;
-    const fit=()=>{const w=$('#camW');if(w&&v.videoWidth){const r=v.videoWidth/v.videoHeight;w.style.aspectRatio=v.videoWidth+'/'+v.videoHeight;w.style.width=`min(100%, calc(62dvh * ${r.toFixed(4)}))`}};v.addEventListener('loadedmetadata',fit);
+    openSheet(camHTML());const v=$('#camV'),cv=$('#camC'),cx=cv.getContext('2d'),msg=$('#camMsg'),st=camStream,t0=Date.now();
+    v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.srcObject=st;
+    const play=()=>{const pr=v.play();if(pr&&pr.catch)pr.catch(()=>{})};v.addEventListener('loadedmetadata',play);v.addEventListener('canplay',play);
+    /* o app desenha a imagem da câmera num canvas: alguns Android mostram o <video> preto dentro de caixas arredondadas */
+    let sized=false;
+    const loop=()=>{if(camStream!==st||!document.contains(cv))return;
+      if(v.videoWidth&&v.readyState>=2){
+        if(!sized){sized=true;const r=v.videoWidth/v.videoHeight,w=$('#camW'),s=Math.min(1,900/Math.max(v.videoWidth,v.videoHeight));cv.width=Math.round(v.videoWidth*s);cv.height=Math.round(v.videoHeight*s);if(w){w.style.aspectRatio=v.videoWidth+'/'+v.videoHeight;w.style.width=`min(100%, calc(62dvh * ${r.toFixed(4)}))`}if(msg)msg.remove()}
+        cx.save();if(camFace==='user'){cx.translate(cv.width,0);cx.scale(-1,1)}cx.drawImage(v,0,0,cv.width,cv.height);cx.restore();
+      }else{if(v.paused)play();if(msg&&Date.now()-t0>4000)msg.innerHTML='A câmera não mostrou imagem. Toque em <b>Virar câmera</b>, ou feche e use <b>Câmera do celular</b>.'}
+      requestAnimationFrame(loop)};
     const r=$('#camOp');if(r)r.addEventListener('input',()=>{camOp=r.value/100;const g=$('#camG');if(g)g.style.opacity=camOp});
-    try{await v.play()}catch(e){}fit();return true}
+    play();requestAnimationFrame(loop);return true}
   catch(e){toast('Sem acesso à câmera ('+(e.name||'erro')+'). Abra o link no Chrome e permita a câmera.');return false}
 }
 A.liveCam=async()=>{keepPForm();if(!await startCam()){openSheet(photoAddHTML());restorePForm()}};
