@@ -696,26 +696,27 @@ function medHome(){
 
 /* peso por dose: cada dose vai da 1ª aplicação até a troca; usa a média de 7 dias nas pontas */
 function doseStats(){
-  const ms=S.meds.slice().filter(m=>!m.other&&m.dose).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);if(!ms.length)return null;
+  const ms=S.meds.slice().filter(m=>m.med&&m.dose).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);if(!ms.length)return null;
   const seg=[];ms.forEach(m=>{const k=m.med+'|'+m.dose,l=seg.at(-1);if(l&&l.k===k)l.n++;else seg.push({k,med:m.med,dose:m.dose,d0:m.d,n:1})});
-  if(seg.length<2)return null;
   const td=today(),multi=new Set(seg.map(s=>s.med)).size>1,gg=gainGoal();
-  const wAt=n=>{const tr=trendAt(n);if(tr!=null)return tr;const w=S.weights.filter(x=>dayNum(x.d)<=n).at(-1);return w?w.kg:null};
+  /* início: média de 7 dias no dia da 1ª aplicação; se não houver pesagem antes, a 1ª pesagem dentro do período. fim: média de 7 dias no fim; senão a última pesagem do período */
+  const wS=(a,b)=>{const tr=trendAt(a);if(tr!=null)return tr;const w=S.weights.find(x=>{const k=dayNum(x.d);return k>=a&&k<=b});return w?w.kg:null};
+  const wE=(a,b)=>{const tr=trendAt(b);if(tr!=null)return tr;const w=S.weights.filter(x=>{const k=dayNum(x.d);return k>=a&&k<=b}).at(-1);return w?w.kg:null};
   seg.forEach((s,i)=>{s.d1=i<seg.length-1?seg[i+1].d0:td;s.cur=i===seg.length-1;const a=dayNum(s.d0),b=dayNum(s.d1);s.days=b-a;s.wk=s.days/7;
-    const w0=wAt(a),w1=wAt(b);s.ch=w0!=null&&w1!=null?w1-w0:null;s.ok=s.ch!=null&&s.wk>=2;s.rate=s.ok?s.ch/s.wk:null;s.prog=s.ok?(gg?s.rate:-s.rate):null;
+    const w0=wS(a,b),w1=wE(a,b);s.ch=w0!=null&&w1!=null?w1-w0:null;s.ok=s.ch!=null&&s.days>=7;s.full=s.ok&&s.wk>=2;s.rate=s.ok?s.ch/s.wk:null;s.prog=s.ok?(gg?s.rate:-s.rate):null;
     s.lab=(multi?s.med+' ':'')+s.dose+' mg'});
   const v=seg.filter(s=>s.ok),mx=Math.max(...v.map(s=>Math.abs(s.rate)),.01);
   const c=seg.at(-1),pv=seg.length>1?seg.at(-2):null;let warn=null;
-  if(c.ok&&pv&&pv.ok&&pv.prog>0&&c.prog<pv.prog*.5){c.flag=1;warn=c.prog<=0?'Na dose atual o peso parou de ir em direção à meta.':`Na dose atual o ritmo caiu para ${Math.max(1,Math.round(c.prog/pv.prog*100))}% do da dose anterior.`}
+  if(c.full&&pv&&pv.full&&pv.prog>0&&c.prog<pv.prog*.5){c.flag=1;warn=c.prog<=0?'Na dose atual o peso parou de ir em direção à meta.':`Na dose atual o ritmo caiu para ${Math.max(1,Math.round(c.prog/pv.prog*100))}% do da dose anterior.`}
   return {seg,mx,warn};
 }
 function doseHTML(){
   const st=doseStats();if(!st)return '';const u=unitL(),dec=1;
   return `<div class="pdose"><h4>Peso por dose</h4>${st.seg.map(s=>`<div class="pdr"><span><b>${esc(s.lab)}</b><span class="s">${s.wk<1?s.days+(s.days===1?' dia':' dias'):nf(s.wk,0)+' sem.'}${s.cur?' · atual':''}</span></span>
   <span class="k">${s.ok?`<i style="width:${Math.max(4,Math.abs(s.rate)/st.mx*100)}%;background:${s.flag?BCOL.A:s.prog>0?BCOL.G:'#993C1D'}"></i>`:''}</span>
-  <span class="r">${s.ok?`<b>${sg(toU(s.ch),dec)} ${u}</b><span class="s">${sg(toU(s.rate),2)}/sem</span>`:`<span class="s">${s.ch==null?'sem pesagens':'pouco tempo'}</span>`}</span></div>`).join('')}
+  <span class="r">${s.ch==null?`<span class="s">sem pesagens</span>`:`<b>${sg(toU(s.ch),dec)} ${u}</b><span class="s">${s.ok?sg(toU(s.rate),2)+'/sem':'pouco tempo'}</span>`}</span></div>`).join('')}
   ${st.warn?`<p class="note" style="margin:4px 0 0"><span style="color:${BCOL.A}">●</span> ${st.warn} Vale conversar com seu médico.</p>`:''}
-  <p class="mut sm" style="margin:8px 0 0;font-size:11.5px">Calculado pela média de 7 dias, do início de cada dose até a troca. Doses com menos de 2 semanas aparecem como "pouco tempo".</p></div>`;
+  <p class="mut sm" style="margin:8px 0 0;font-size:11.5px">Calculado pela média de 7 dias, do início de cada dose até a troca. Com menos de 1 semana na dose, o ritmo ainda não aparece.</p></div>`;
 }
 function medCard(){
   const all=medSorted(),L=medMore?all:all.slice(0,5);
@@ -881,7 +882,7 @@ function photoAddHTML(){
   const p=pState,u=unitL();
   return sh('Nova foto de progresso',`<div class="form">
    <div class="seg" style="justify-self:center">${ANG.map(([k,l])=>`<button class="${p.angle===k?'on':''}" data-act="pAngle" data-k="${k}">${l}</button>`).join('')}</div>
-   <div class="ph" style="aspect-ratio:3/4;max-width:240px;margin:0 auto">${p.data?`<img src="${p.data}" alt="Pré-visualização">`:`<div style="display:grid;place-content:center;justify-items:center;height:100%;gap:10px;padding:14px;text-align:center"><label class="btn sm filelbl">${ic.cam} Tirar foto<input type="file" class="pfile" accept="image/*" capture="environment"></label><label class="btn ghost sm filelbl">Escolher da galeria<input type="file" class="pfile" accept="image/*"></label><button class="btn ghost sm" style="width:auto;padding:0 18px" data-act="liveCam">Câmera ao vivo</button><span class="note" style="font-size:11.5px">Se os botões acima não abrirem nada, use a câmera ao vivo.</span></div>`}</div>
+   <div class="ph" style="aspect-ratio:3/4;max-width:240px;margin:0 auto">${p.data?`<img src="${p.data}" alt="Pré-visualização">`:`<div style="display:grid;place-content:center;justify-items:center;height:100%;gap:10px;padding:14px;text-align:center"><button class="btn sm" data-act="liveCam">${ic.cam} ${camGhost()?'Câmera com guia':'Câmera com grade'}</button><label class="btn ghost sm filelbl">Câmera do celular<input type="file" class="pfile" accept="image/*" capture="environment"></label><label class="btn ghost sm filelbl">Escolher da galeria<input type="file" class="pfile" accept="image/*"></label><span class="note" style="font-size:11.5px">${camGhost()?'O guia mostra sua foto anterior deste ângulo. A câmera do celular não mostra o guia.':'Primeira foto deste ângulo: a próxima já vem com guia.'}</span></div>`}</div>
    ${p.data?`<button class="link" data-act="pClear" style="justify-self:center">Trocar foto</button>`:''}
    <div class="two"><label>Data<input type="date" id="pD" value="${p.d}" max="${today()}" data-chg="pdate"></label><label>Peso do dia (${u})<input id="pW" inputmode="decimal" placeholder="opcional" value="${p.kg!=null?nf(toU(p.kg),1):''}"></label></div>
    <label>Anotação<textarea id="pN" rows="2" placeholder="Como você se sentiu, treino, dieta..."></textarea></label>
