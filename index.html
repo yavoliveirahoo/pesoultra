@@ -183,6 +183,26 @@ body.pen .pen-hint{display:block}
 .lockbox{text-align:center;padding:40px 20px}
 .lockbox svg{width:44px;height:44px;color:var(--gold);margin-bottom:10px}
 .cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pdose{background:var(--s2);border-radius:18px;padding:14px;margin:0 0 14px}
+.pdose h4{margin:0 0 10px;font-size:15px;font-weight:600}
+.pdr{display:grid;grid-template-columns:72px minmax(0,1fr) 78px;align-items:center;gap:10px;margin-bottom:10px;font-size:13.5px}
+.pdr .s{display:block;font-size:11.5px;color:var(--tx2);font-weight:400}
+.pdr .k{display:block;height:10px;border-radius:5px;background:var(--s3);overflow:hidden}
+.pdr .k i{display:block;height:100%;border-radius:5px}
+.pdr .r{text-align:right}
+.ba{position:relative;aspect-ratio:3/4;border-radius:18px;overflow:hidden;background:var(--s2);touch-action:none;user-select:none;-webkit-user-select:none}
+.ba img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.ba .bb{clip-path:inset(0 0 0 50%)}
+.ba .bl{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:var(--gold);pointer-events:none}
+.ba .bl b{position:absolute;top:50%;left:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--gold);color:#0F1218;display:grid;place-items:center;font-size:16px}
+.ba .tg{position:absolute;top:10px;font-size:11.5px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 9px;border-radius:8px;pointer-events:none}
+.camw{position:relative;margin:0 auto;border-radius:22px;overflow:hidden;background:#000}
+.camw video,.camw .gh{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.camw .gh{pointer-events:none}
+.camw .grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.18),rgba(255,255,255,.18)),linear-gradient(rgba(255,255,255,.18),rgba(255,255,255,.18)),linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.18)),linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.18));background-size:100% 1px,100% 1px,1px 100%,1px 100%;background-position:0 33.33%,0 66.66%,33.33% 0,66.66% 0;background-repeat:no-repeat}
+.camw .tg{position:absolute;top:10px;left:10px;font-size:11.5px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 9px;border-radius:8px}
+.camc{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:var(--tx2)}
+.camc input[type=range]{flex:1;accent-color:var(--gold)}
 .cmp .lab{font-size:12.5px;color:var(--tx2);text-align:center;padding:4px 0}
 /* medicação */
 .rx{display:flex;align-items:center;gap:8px;margin:0 0 8px;background:rgba(228,180,94,.09);border-radius:14px;padding:9px 12px;color:var(--gold2);font-size:13px;line-height:1.35}
@@ -673,12 +693,36 @@ function medHome(){
   const m=medSorted()[0];if(!m)return '';const nd=nextDose();
   return `<div class="group"><button class="row" data-act="tab" data-t="analise"><span class="lead g">${ic.pill}</span><div class="t"><b>${esc(medTxt(m))}</b><span>Última aplicação: ${esc(siteName(m.site))} · ${relD(m.d)}</span>${nd?`<span class="${nd.diff<0?'up-t':nd.diff===0?'nt':''}">${ndTxt(nd)}</span>`:''}</div>${ic.chev}</button></div>`;
 }
+
+/* peso por dose: cada dose vai da 1ª aplicação até a troca; usa a média de 7 dias nas pontas */
+function doseStats(){
+  const ms=S.meds.slice().filter(m=>!m.other&&m.dose).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);if(!ms.length)return null;
+  const seg=[];ms.forEach(m=>{const k=m.med+'|'+m.dose,l=seg.at(-1);if(l&&l.k===k)l.n++;else seg.push({k,med:m.med,dose:m.dose,d0:m.d,n:1})});
+  if(seg.length<2)return null;
+  const td=today(),multi=new Set(seg.map(s=>s.med)).size>1,gg=gainGoal();
+  const wAt=n=>{const tr=trendAt(n);if(tr!=null)return tr;const w=S.weights.filter(x=>dayNum(x.d)<=n).at(-1);return w?w.kg:null};
+  seg.forEach((s,i)=>{s.d1=i<seg.length-1?seg[i+1].d0:td;s.cur=i===seg.length-1;const a=dayNum(s.d0),b=dayNum(s.d1);s.days=b-a;s.wk=s.days/7;
+    const w0=wAt(a),w1=wAt(b);s.ch=w0!=null&&w1!=null?w1-w0:null;s.ok=s.ch!=null&&s.wk>=2;s.rate=s.ok?s.ch/s.wk:null;s.prog=s.ok?(gg?s.rate:-s.rate):null;
+    s.lab=(multi?s.med+' ':'')+s.dose+' mg'});
+  const v=seg.filter(s=>s.ok),mx=Math.max(...v.map(s=>Math.abs(s.rate)),.01);
+  const c=seg.at(-1),pv=seg.length>1?seg.at(-2):null;let warn=null;
+  if(c.ok&&pv&&pv.ok&&pv.prog>0&&c.prog<pv.prog*.5){c.flag=1;warn=c.prog<=0?'Na dose atual o peso parou de ir em direção à meta.':`Na dose atual o ritmo caiu para ${Math.max(1,Math.round(c.prog/pv.prog*100))}% do da dose anterior.`}
+  return {seg,mx,warn};
+}
+function doseHTML(){
+  const st=doseStats();if(!st)return '';const u=unitL(),dec=1;
+  return `<div class="pdose"><h4>Peso por dose</h4>${st.seg.map(s=>`<div class="pdr"><span><b>${esc(s.lab)}</b><span class="s">${s.wk<1?s.days+(s.days===1?' dia':' dias'):nf(s.wk,0)+' sem.'}${s.cur?' · atual':''}</span></span>
+  <span class="k">${s.ok?`<i style="width:${Math.max(4,Math.abs(s.rate)/st.mx*100)}%;background:${s.flag?BCOL.A:s.prog>0?BCOL.G:'#993C1D'}"></i>`:''}</span>
+  <span class="r">${s.ok?`<b>${sg(toU(s.ch),dec)} ${u}</b><span class="s">${sg(toU(s.rate),2)}/sem</span>`:`<span class="s">${s.ch==null?'sem pesagens':'pouco tempo'}</span>`}</span></div>`).join('')}
+  ${st.warn?`<p class="note" style="margin:4px 0 0"><span style="color:${BCOL.A}">●</span> ${st.warn} Vale conversar com seu médico.</p>`:''}
+  <p class="mut sm" style="margin:8px 0 0;font-size:11.5px">Calculado pela média de 7 dias, do início de cada dose até a troca. Doses com menos de 2 semanas aparecem como "pouco tempo".</p></div>`;
+}
 function medCard(){
   const all=medSorted(),L=medMore?all:all.slice(0,5);
   const rows=L.map(m=>`<div class="hist"><div class="t"><b>${esc(medTxt(m))}</b><span>${esc(siteName(m.site))} · ${relD(m.d)}</span></div><button class="mb" data-act="medEdit" data-id="${esc(m.id)}">Editar</button><button class="mb dg" data-act="medDel" data-id="${esc(m.id)}">Deletar</button></div>`).join('');
   const nd=nextDose(),ns=nextSite();
   const nxt=nd?`<p class="note" style="margin:0 0 10px"><b class="${nd.diff<0?'up-t':''}">${ndTxt(nd)}.</b>${ns?` Local sugerido pelo rodízio: ${esc(siteName(ns))}.`:''}</p>`:'';
-  return `<section class="card"><div class="hd"><h2>Medicação</h2><button class="link" data-act="medSheet">Registrar</button></div>${nxt}${rows||'<p class="mut sm" style="margin:2px 0 12px">Registre cada aplicação: remédio, dosagem e local do corpo. A última aparece na tela inicial e as outras na semana a semana.</p><button class="btn ghost" data-act="medSheet">Registrar aplicação</button>'}${all.length>5?`<button class="link" style="margin-top:8px" data-act="medMore">${medMore?'Mostrar só as 5 últimas':'Ver todas ('+all.length+')'}</button>`:''}</section>`;
+  return `<section class="card"><div class="hd"><h2>Medicação</h2><button class="link" data-act="medSheet">Registrar</button></div>${nxt}${doseHTML()}${rows||'<p class="mut sm" style="margin:2px 0 12px">Registre cada aplicação: remédio, dosagem e local do corpo. A última aparece na tela inicial e as outras na semana a semana.</p><button class="btn ghost" data-act="medSheet">Registrar aplicação</button>'}${all.length>5?`<button class="link" style="margin-top:8px" data-act="medMore">${medMore?'Mostrar só as 5 últimas':'Ver todas ('+all.length+')'}</button>`:''}</section>`;
 }
 function msCard(){
   const m=milestones();if(!m.done.length&&!m.next)return '';
@@ -723,7 +767,7 @@ views.fotos=()=>{
   if(S.settings.lock&&!unlocked)return `${top()}<h1 class="h1">Fotos</h1><div class="card lockbox">${ic.lock}<h2>Fotos protegidas</h2><p class="mut sm">Desbloqueie para ver suas fotos de progresso.</p><button class="btn" data-act="unlockSheet">Desbloquear</button></div>`;
   const ms=months();
   return `${top()}<h1 class="h1">Fotos</h1><p class="sub">Uma série por mês: frente, lado e costas.</p>
-  <div class="two" style="margin-bottom:18px"><button class="btn sm" data-act="photoAdd">${ic.cam} Nova foto</button><button class="btn ghost sm" data-act="cmpSheet">Comparar meses</button></div>
+  <div class="two" style="margin-bottom:18px"><button class="btn sm" data-act="photoAdd">${ic.cam} Nova foto</button><button class="btn ghost sm" data-act="cmpSheet">Comparar meses</button></div>${PH.length>1?`<button class="btn ghost sm" style="width:100%;margin:-8px 0 18px" data-act="baSheet">${ic.chart} Antes e depois</button>`:''}
   ${ms.length?ms.map(m=>{
     const list=PH.filter(p=>p.month===m).sort((a,b)=>ANG.findIndex(x=>x[0]===a.angle)-ANG.findIndex(x=>x[0]===b.angle)||(a.d<b.d?-1:1));
     const ws=list.map(p=>p.kg).filter(v=>v!=null);
@@ -851,6 +895,29 @@ function photoViewHTML(p){
 }
 function monthMeasure(id,m){const e=mSeries(id).filter(x=>x.d.slice(0,7)<=m).at(-1);return e?e.v:null}
 function monthWeight(m){const l=S.weights.filter(x=>x.d.slice(0,7)<=m).at(-1);return l?l.kg:null}
+
+/* antes e depois: duas fotos do mesmo ângulo sobrepostas, com linha arrastável */
+let ba={angle:'frente',a:null,b:null,p:50};
+function baHTML(){
+  const angs=ANG.filter(([k])=>new Set(PH.filter(p=>p.angle===k).map(p=>p.month)).size>=2);
+  if(!angs.length)return sh('Antes e depois','<div class="empty">Você precisa de fotos do mesmo ângulo em pelo menos dois meses diferentes.</div>');
+  if(!angs.some(a=>a[0]===ba.angle)){ba.angle=angs[0][0];ba.a=ba.b=null}
+  const L=PH.filter(p=>p.angle===ba.angle).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
+  if(!L.some(p=>p.id===ba.a))ba.a=L[0].id;if(!L.some(p=>p.id===ba.b))ba.b=L.at(-1).id;
+  const A=L.find(p=>p.id===ba.a),B=L.find(p=>p.id===ba.b),opt=sel=>L.map(p=>`<option value="${p.id}"${p.id===sel?' selected':''}>${fShort(p.d)} ${p.d.slice(0,4)}</option>`).join('');
+  const ka=A.kg??weightAt(A.d),kb=B.kg??weightAt(B.d),cm=d=>{const e=mSeries('cintura').filter(x=>x.d<=d).at(-1);return e?e.v:null},ca=cm(A.d),cb=cm(B.d);
+  const parts=[];if(ka!=null&&kb!=null)parts.push(`${sg(toU(kb-ka),1)} ${unitL()}`);if(ca!=null&&cb!=null&&A.d!==B.d)parts.push(`cintura ${sg(cb-ca,1)} cm`);
+  const tag=p=>`${mLabel(p.month).split(' ')[0].slice(0,3)}.${(p.kg??weightAt(p.d))!=null?' · '+nf(toU(p.kg??weightAt(p.d)))+' '+unitL():''}`;
+  return sh('Antes e depois',`<div class="chips" style="padding:0 0 12px">${angs.map(([k,l])=>`<button class="chip ${k===ba.angle?'on':''}" data-act="baAng" data-k="${k}">${l}</button>`).join('')}</div>
+  <div class="form two" style="margin-bottom:12px"><label>Antes<select data-chg="baA">${opt(ba.a)}</select></label><label>Depois<select data-chg="baB">${opt(ba.b)}</select></label></div>
+  <div class="ba" id="baBox"><img src="${A.data}" alt="Antes"><img class="bb" src="${B.data}" alt="Depois" style="clip-path:inset(0 0 0 ${ba.p}%)"><div class="bl" style="left:${ba.p}%"><b>⇆</b></div><span class="tg" style="left:10px">${esc(tag(A))}</span><span class="tg" style="right:10px">${esc(tag(B))}</span></div>
+  <p class="note" style="margin:10px 0 0">${parts.length?parts.join(' · ')+' entre as duas fotos. ':''}Arraste a linha para comparar.</p>`);
+}
+function baBind(){const box=$('#baBox');if(!box)return;const img=box.querySelector('.bb'),ln=box.querySelector('.bl');let dn=false;
+  const set=e=>{const r=box.getBoundingClientRect();ba.p=clamp((e.clientX-r.left)/r.width*100,0,100);img.style.clipPath=`inset(0 0 0 ${ba.p}%)`;ln.style.left=ba.p+'%'};
+  box.addEventListener('pointerdown',e=>{dn=true;try{box.setPointerCapture(e.pointerId)}catch(_){}set(e)});box.addEventListener('pointermove',e=>{if(dn)set(e)});
+  const up=()=>{dn=false};box.addEventListener('pointerup',up);box.addEventListener('pointercancel',up)}
+function baOpen(){openSheet(baHTML());baBind()}
 function cmpHTML(){
   const ms=months().slice().reverse();
   if(ms.length<2)return sh('Comparar meses','<div class="empty">Você precisa de fotos em pelo menos dois meses diferentes para comparar.</div>');
@@ -1236,15 +1303,25 @@ A.liveCam=async()=>{keepPForm();try{const st=await navigator.mediaDevices.getUse
  }catch(e){toast('Câmera indisponível aqui. Use "Tirar foto" ou a galeria.')}};
 let camStream=null,camFace='environment';
 function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}}
-function camHTML(){return sh('Câmera',`<video id="camV" autoplay playsinline muted style="width:100%;border-radius:22px;background:#000;max-height:62dvh;${camFace==='user'?'transform:scaleX(-1)':''}"></video><div class="form" style="margin-top:14px"><button class="btn" data-act="camShot">Capturar foto</button><div class="two"><button class="btn ghost sm" data-act="camFlip">Virar câmera</button><button class="btn ghost sm" data-act="camCancel">Cancelar</button></div></div>`)}
+let camOp=.35,camGrid=true;
+/* guia: a foto anterior do mesmo ângulo, transparente por cima da câmera */
+function camGhost(){if(!pState)return null;const L=PH.filter(p=>p.angle===pState.angle).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);return L.filter(p=>p.d<pState.d).at(-1)||L.at(-1)||null}
+function camHTML(){const g=camGhost(),al=(ANG.find(a=>a[0]===(pState&&pState.angle))||[,''])[1];
+  return sh('Câmera',`<div class="camw" id="camW" style="width:100%;aspect-ratio:3/4;max-height:62dvh"><video id="camV" autoplay playsinline muted style="${camFace==='user'?'transform:scaleX(-1)':''}"></video>${g?`<img class="gh" id="camG" src="${g.data}" alt="" style="opacity:${camOp}">`:''}<div class="grid" id="camGr"${camGrid?'':' style="display:none"'}></div>${g?`<span class="tg">Guia: ${esc(al.toLowerCase())} de ${esc(mLabel(g.month).split(' ')[0].toLowerCase().slice(0,3))}.</span>`:''}</div>
+  <div class="camc">${g?`<span>Guia</span><input type="range" id="camOp" min="0" max="70" step="5" value="${Math.round(camOp*100)}" aria-label="Transparência do guia">`:'<span style="flex:1">Sem foto anterior deste ângulo para usar como guia.</span>'}<button class="chip ${camGrid?'on':''}" data-act="camGridT">Grade</button></div>
+  <div class="form" style="margin-top:12px"><button class="btn" data-act="camShot">Capturar foto</button><div class="two"><button class="btn ghost sm" data-act="camFlip">Virar câmera</button><button class="btn ghost sm" data-act="camCancel">Cancelar</button></div></div>`)}
 async function startCam(){
   stopCam();
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Câmera ao vivo indisponível neste ambiente. Abra o link no Chrome.');return false}
   try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:camFace},width:{ideal:1440},height:{ideal:1920}},audio:false});
-    openSheet(camHTML());const v=$('#camV');v.srcObject=camStream;try{await v.play()}catch(e){}return true}
+    openSheet(camHTML());const v=$('#camV');v.srcObject=camStream;
+    const fit=()=>{const w=$('#camW');if(w&&v.videoWidth){const r=v.videoWidth/v.videoHeight;w.style.aspectRatio=v.videoWidth+'/'+v.videoHeight;w.style.width=`min(100%, calc(62dvh * ${r.toFixed(4)}))`}};v.addEventListener('loadedmetadata',fit);
+    const r=$('#camOp');if(r)r.addEventListener('input',()=>{camOp=r.value/100;const g=$('#camG');if(g)g.style.opacity=camOp});
+    try{await v.play()}catch(e){}fit();return true}
   catch(e){toast('Sem acesso à câmera ('+(e.name||'erro')+'). Abra o link no Chrome e permita a câmera.');return false}
 }
 A.liveCam=async()=>{keepPForm();if(!await startCam()){openSheet(photoAddHTML());restorePForm()}};
+A.camGridT=el=>{camGrid=!camGrid;const g=$('#camGr');if(g)g.style.display=camGrid?'':'none';el.classList.toggle('on',camGrid)};
 A.camFlip=()=>{camFace=camFace==='user'?'environment':'user';startCam()};
 A.camCancel=()=>{stopCam();openSheet(photoAddHTML());restorePForm()};
 A.camShot=()=>{const v=$('#camV');if(!v||!v.videoWidth){toast('A câmera ainda está iniciando');return}
@@ -1266,6 +1343,8 @@ A.pOpen=async el=>{if(!await needUnlock())return;const p=PH.find(x=>x.id===el.da
 A.pvSave=async el=>{const p=PH.find(x=>x.id===el.dataset.id);p.note=$('#pvN').value.trim();await DB.put(p);toast('Nota salva')};
 A.pDel=async el=>{if(!await askConfirm('Excluir foto','Essa foto será removida deste aparelho.','Excluir',true))return;PH=PH.filter(p=>p.id!==el.dataset.id);await DB.del(el.dataset.id);closeSheet();renderView(true)};
 A.cmpSheet=async()=>{if(!await needUnlock())return;openSheet(cmpHTML())};
+A.baSheet=async()=>{if(!await needUnlock())return;ba.p=50;baOpen()};
+A.baAng=el=>{ba.angle=el.dataset.k;ba.a=ba.b=null;baOpen()};
 /* lock */
 A.unlockSheet=()=>openSheet(unlockHTML());
 A.pinUnlock=async()=>{const lk=S.settings.lock,pin=$('#uPin').value;if(!pin)return;if(await sha(pin+lk.salt)===lk.hash){unlocked=true;closeSheet();renderView(true);toast('Desbloqueado')}else toast('PIN incorreto')};
@@ -1353,6 +1432,8 @@ const CHG={
  bdate:el=>{bowDate=el.value||today();bowRefresh()},
  rph:el=>{PER.rep.photos=el.checked;repPhRefresh()},
  rphm:el=>{PER.rep.phm=el.value;repPhRefresh()},
+ baA:el=>{ba.a=el.value;baOpen()},
+ baB:el=>{ba.b=el.value;baOpen()},
  perfrom:el=>{PER[el.dataset.sc].from=el.value;repaint(el.dataset.sc)},
  perto:el=>{PER[el.dataset.sc].to=el.value;repaint(el.dataset.sc)},
  pdate:el=>{pState.d=el.value;const w=weightAt(el.value);if(num($('#pW').value)==null&&w!=null){$('#pW').value=nf(toU(w),1);pState.kg=w}},
